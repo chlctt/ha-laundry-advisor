@@ -6,23 +6,60 @@ on:
   workflow_dispatch:
 
 jobs:
-  yamllint:
+  yaml:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: yamllint
         run: |
           pipx install yamllint
-          yamllint -d relaxed blueprints/ examples/
+          yamllint -d relaxed .
 
-  blueprint-schema:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Home Assistant blueprint check
-        uses: home-assistant/actions/hassfest@master
-        continue-on-error: true
-      - name: Basic YAML parse
+      - name: Parse blueprint & examples (HA YAML tags aware)
         run: |
-          python -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" \
-            blueprints/template/laundry_advisor.yaml
+          python - <<'PY'
+          import glob
+          import yaml
+
+          class HALoader(yaml.SafeLoader):
+              pass
+
+          def _passthrough(loader, node):
+              if isinstance(node, yaml.ScalarNode):
+                  return loader.construct_scalar(node)
+              if isinstance(node, yaml.SequenceNode):
+                  return loader.construct_sequence(node)
+              return loader.construct_mapping(node)
+
+          for tag in ("!input", "!secret", "!include", "!include_dir_list",
+                      "!include_dir_named", "!include_dir_merge_list",
+                      "!include_dir_merge_named", "!env_var"):
+              HALoader.add_constructor(tag, _passthrough)
+
+          files = glob.glob("blueprints/**/*.yaml", recursive=True) + \
+              glob.glob("examples/**/*.yaml", recursive=True) + \
+              glob.glob("packages/**/*.yaml", recursive=True)
+          for f in files:
+              with open(f, encoding="utf-8") as fh:
+                  yaml.load(fh, Loader=HALoader)
+              print("ok:", f)
+          PY
+
+      - name: Blueprint has required keys
+        run: |
+          python - <<'PY'
+          import yaml
+
+          class L(yaml.SafeLoader):
+              pass
+          L.add_constructor("!input", lambda l, n: {"__input__": l.construct_scalar(n)})
+
+          d = yaml.load(open("blueprints/template/laundry_advisor.yaml", encoding="utf-8"), Loader=L)
+          bp = d["blueprint"]
+          assert bp["domain"] == "template", bp["domain"]
+          assert "input" in bp and bp["input"], "no inputs"
+          assert "trigger" in d and "action" in d, "trigger-based template expected"
+          assert len(d["sensor"]) == 1, "template blueprint must define exactly one entity"
+          print("blueprint structure ok")
+          PY
