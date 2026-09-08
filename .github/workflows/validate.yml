@@ -1,0 +1,28 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: yamllint
+        run: |
+          pipx install yamllint
+          yamllint -d relaxed blueprints/ examples/
+
+  blueprint-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Home Assistant blueprint check
+        uses: home-assistant/actions/hassfest@master
+        continue-on-error: true
+      - name: Basic YAML parse
+        run: |
+          python -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" \
+            blueprints/template/laundry_advisor.yaml

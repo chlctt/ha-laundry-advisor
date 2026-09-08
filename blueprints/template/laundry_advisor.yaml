@@ -1,0 +1,514 @@
+blueprint:
+  name: Laundry Advisor / Wäschewetter
+  description: >
+    Empfiehlt, ob Wäsche **draußen**, **im Keller** oder **gar nicht heute**
+    getrocknet werden sollte – und ob es sich lohnt, mit dem Waschen auf morgen
+    zu warten.
+
+
+    Erzeugt **einen** Sensor `sensor.<name>` mit dem Empfehlungs-Zustand als
+    State und allen weiteren Werten (Outdoor-Score heute/morgen, Teil-Scores,
+    Tagesvorschau, Keller-Bewertung, bestes Zeitfenster) als Attributen.
+
+
+    Nutzt `weather.get_forecasts` (stündlich + täglich). Optional eine zweite
+    Wetter-Entität nur für die Regenwahrscheinlichkeit (z. B. Met.no, wenn die
+    Primärquelle wie der DWD im Stundenmodus keine liefert).
+
+
+    Trocken-Score-Logik: Wind + Sättigungsdefizit (Feuchte/Taupunkt) dominieren,
+    Sonne und Temperatur wirken unterstützend; Regen ist ein hartes K.-o.
+    Keller-Logik: 5-Kelvin-Taupunktregel fürs Lüften, Ziel-rF < 65 %,
+    Schimmel-Guard über die geschätzte Oberflächenfeuchte.
+
+
+    Doku & Quellen: https://github.com/chlctt/ha-laundry-advisor
+  domain: template
+  source_url: https://github.com/chlctt/ha-laundry-advisor/blob/main/blueprints/template/laundry_advisor.yaml
+  homeassistant:
+    min_version: 2024.11.0
+  input:
+    sources:
+      name: Datenquellen
+      icon: mdi:weather-partly-cloudy
+      input:
+        weather_entity:
+          name: Wetter-Entität (primär)
+          description: Liefert die stündliche und tägliche Vorhersage.
+          selector:
+            entity:
+              filter:
+                - domain: weather
+        precip_prob_entity:
+          name: Zweit-Wetter nur für Regenwahrscheinlichkeit (optional)
+          description: >
+            Wird stundenweise gematcht. Leer lassen, wenn die Primärquelle
+            `precipitation_probability` selbst liefert.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: weather
+        cellar_temp:
+          name: Keller-Temperatursensor
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: temperature
+        cellar_humidity:
+          name: Keller-Feuchtesensor
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: humidity
+    optional_sensors:
+      name: Optionale Sensoren
+      icon: mdi:tune-variant
+      collapsed: true
+      input:
+        outdoor_temp:
+          name: Außen-Temperatursensor
+          description: Fallback ist die Temperatur aus der Wetter-Entität.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: temperature
+        outdoor_humidity:
+          name: Außen-Feuchtesensor
+          description: Fallback ist die Luftfeuchte aus der Wetter-Entität.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: humidity
+        cellar_wall_temp:
+          name: Kälteste Wand-/Oberflächentemperatur im Keller
+          description: >
+            Ohne diesen Wert wird die Oberflächenfeuchte grob = Raumfeuchte
+            gesetzt (Schimmel-Guard weniger empfindlich).
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: temperature
+        solar_radiation:
+          name: Globalstrahlungssensor (W/m²)
+          description: >
+            Optionaler Live-Wert. Für die Vorhersage wird `sun_irradiance` aus
+            der Wetter-Entität genutzt, falls vorhanden, sonst die Bewölkung.
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+        already_washed_boolean:
+          name: "Helfer: Wäsche ist bereits gewaschen"
+          description: >
+            input_boolean. Steuert `wait_for_tomorrow` (schon gewaschen → auf
+            den Ständer) vs. `defer_wash` (noch nicht → Waschen verschieben).
+          default:
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
+    tuning:
+      name: Feineinstellung
+      icon: mdi:cog
+      collapsed: true
+      input:
+        block_hours:
+          name: Länge des Bewertungsfensters (h)
+          default: 5
+          selector:
+            number:
+              min: 2
+              max: 10
+              unit_of_measurement: h
+        day_start_hour:
+          name: Tageslicht-Beginn (Stunde, lokal)
+          default: 8
+          selector:
+            number:
+              min: 3
+              max: 12
+        day_end_hour:
+          name: Tageslicht-Ende (Stunde, lokal)
+          default: 20
+          selector:
+            number:
+              min: 14
+              max: 23
+        score_hang:
+          name: Score-Schwelle „raushängen“
+          default: 70
+          selector:
+            number:
+              min: 40
+              max: 100
+        score_marginal:
+          name: Score-Schwelle „grenzwertig“
+          default: 45
+          selector:
+            number:
+              min: 20
+              max: 80
+        wait_delta:
+          name: Nötiger Score-Vorsprung von morgen für „warten“
+          default: 20
+          selector:
+            number:
+              min: 5
+              max: 50
+        weight_wind:
+          name: Gewicht Wind
+          default: 35
+          selector:
+            number:
+              min: 0
+              max: 100
+        weight_humidity:
+          name: Gewicht Luftfeuchte / VPD
+          default: 30
+          selector:
+            number:
+              min: 0
+              max: 100
+        weight_sun:
+          name: Gewicht Sonne
+          default: 20
+          selector:
+            number:
+              min: 0
+              max: 100
+        weight_temperature:
+          name: Gewicht Temperatur
+          default: 15
+          selector:
+            number:
+              min: 0
+              max: 100
+        cellar_rh_max:
+          name: Maximale Keller-rF für „Keller nutzbar“ (%)
+          default: 65
+          selector:
+            number:
+              min: 45
+              max: 80
+              unit_of_measurement: "%"
+        cellar_temp_min:
+          name: Minimale Keller-Temperatur für „Keller nutzbar“ (°C)
+          default: 15
+          selector:
+            number:
+              min: 8
+              max: 22
+              unit_of_measurement: "°C"
+        vent_dewpoint_margin:
+          name: Taupunkt-Marge fürs Lüften (K)
+          description: Lüften erst, wenn Außentaupunkt so viel unter dem Keller-Taupunkt liegt.
+          default: 5
+          selector:
+            number:
+              min: 1
+              max: 9
+              unit_of_measurement: K
+
+variables:
+  weather_entity: !input weather_entity
+  prob_entity: !input precip_prob_entity
+  in_cellar_temp: !input cellar_temp
+  in_cellar_humidity: !input cellar_humidity
+  in_outdoor_temp: !input outdoor_temp
+  in_outdoor_humidity: !input outdoor_humidity
+  in_wall_temp: !input cellar_wall_temp
+  in_washed: !input already_washed_boolean
+  cfg_block_hours: !input block_hours
+  cfg_day_start: !input day_start_hour
+  cfg_day_end: !input day_end_hour
+  cfg_hang: !input score_hang
+  cfg_marginal: !input score_marginal
+  cfg_wait_delta: !input wait_delta
+  cfg_w_wind: !input weight_wind
+  cfg_w_hum: !input weight_humidity
+  cfg_w_sun: !input weight_sun
+  cfg_w_temp: !input weight_temperature
+  cfg_rh_max: !input cellar_rh_max
+  cfg_t_min: !input cellar_temp_min
+  cfg_vent_margin: !input vent_dewpoint_margin
+
+trigger:
+  - platform: time_pattern
+    minutes: "/15"
+  - platform: homeassistant
+    event: start
+  - platform: state
+    entity_id: !input cellar_temp
+  - platform: state
+    entity_id: !input cellar_humidity
+
+action:
+  - action: weather.get_forecasts
+    target:
+      entity_id: !input weather_entity
+    data:
+      type: hourly
+    response_variable: fc_hourly
+  - action: weather.get_forecasts
+    target:
+      entity_id: !input weather_entity
+    data:
+      type: daily
+    response_variable: fc_daily
+  - if:
+      - condition: template
+        value_template: "{{ prob_entity is not none and prob_entity | string | trim != '' }}"
+    then:
+      - action: weather.get_forecasts
+        target:
+          entity_id: !input precip_prob_entity
+        data:
+          type: hourly
+        response_variable: fc_prob
+    else:
+      - variables:
+          fc_prob: {}
+  - variables:
+      result: >
+        {%- set we = weather_entity -%}
+        {%- set hours = (fc_hourly.get(we, {}).get('forecast', [])) -%}
+        {%- set days = (fc_daily.get(we, {}).get('forecast', [])) -%}
+        {%- set pe = prob_entity -%}
+        {%- set prob_hours = (fc_prob.get(pe, {}).get('forecast', []) if pe else []) -%}
+
+        {# ---- Makros ---- #}
+        {%- macro dew_point(t, rh) -%}
+          {%- set t = t | float(0) -%}{%- set rh = [rh | float(0), 0.5] | max -%}
+          {%- set g = (rh / 100) | log + (17.625 * t) / (243.04 + t) -%}
+          {{- (243.04 * g / (17.625 - g)) | round(2) -}}
+        {%- endmacro -%}
+        {%- macro sat_vp(t) -%}
+          {{- (6.1094 * e ** (17.625 * (t | float(0)) / (243.04 + (t | float(0))))) | round(4) -}}
+        {%- endmacro -%}
+        {%- macro abs_humidity(t, rh) -%}
+          {%- set t = t | float(0) -%}{%- set rh = rh | float(0) -%}
+          {%- set es = 6.1094 * e ** (17.625 * t / (243.04 + t)) -%}
+          {{- (216.7 * (rh / 100 * es) / (t + 273.15)) | round(2) -}}
+        {%- endmacro -%}
+        {%- macro ramp(x, x0, x1) -%}
+          {%- set x = x | float(0) -%}{{- [[(x - x0) / (x1 - x0), 0] | max, 1] | min -}}
+        {%- endmacro -%}
+        {%- macro hour_score(temp, rh, wind, gust, cloud, precip, pp, irr) -%}
+          {%- if precip | float(0) > 0.1 -%}0
+          {%- else -%}
+            {%- set s_wind = [ramp(wind, 3, 12) | float, ramp(wind, 40, 25) | float] | min -%}
+            {%- set td = dew_point(temp, rh) | float -%}
+            {%- set spread = (temp | float(10)) - td -%}
+            {%- set s_hum = [ramp(rh, 90, 55) | float, ramp(spread, 2, 6) | float] | min -%}
+            {%- set s_sun = ramp(irr, 20, 450) | float if irr | float(-1) >= 0 else (1 - (cloud | float(50)) / 100) -%}
+            {%- set s_temp = ramp(temp, 5, 20) | float -%}
+            {%- set wsum = [cfg_w_wind + cfg_w_hum + cfg_w_sun + cfg_w_temp, 1] | max -%}
+            {%- set base = (cfg_w_wind * s_wind + cfg_w_hum * s_hum + cfg_w_sun * s_sun + cfg_w_temp * s_temp) / wsum * 100 -%}
+            {%- set m = 0.4 if pp | float(-1) > 60 else (0.7 if pp | float(-1) > 40 else 1.0) -%}
+            {%- set sc = base * m -%}
+            {%- set sc = [sc, 40] | min if gust | float(0) > 45 else sc -%}
+            {{- [sc, 0] | max | round(1) -}}
+          {%- endif -%}
+        {%- endmacro -%}
+
+        {# ---- Regenwahrscheinlichkeit aus Zweitquelle indexieren ---- #}
+        {%- set ns = namespace(prob={}) -%}
+        {%- for p in prob_hours -%}
+          {%- set key = as_timestamp(p.datetime) | int -%}
+          {%- set ns.prob = dict(ns.prob, **{key | string: p.get('precipitation_probability')}) -%}
+        {%- endfor -%}
+
+        {# ---- Stunden bewerten, nach lokalem Datum gruppieren ---- #}
+        {%- set g = namespace(days={}) -%}
+        {%- for h in hours -%}
+          {%- set ts = as_timestamp(h.datetime) -%}
+          {%- set ldt = ts | timestamp_custom('%Y-%m-%d %H', true) -%}
+          {%- set date = ldt[:10] -%}
+          {%- set lhour = ldt[11:] | int -%}
+          {%- set is_day = (lhour >= cfg_day_start and lhour < cfg_day_end) -%}
+          {%- set pp = h.get('precipitation_probability') -%}
+          {%- set pp = ns.prob.get((ts | int) | string, pp) -%}
+          {%- set pp = -1 if pp is none else pp -%}
+          {%- set sc = hour_score(h.get('temperature'), h.get('humidity'), h.get('wind_speed'),
+                                  h.get('wind_gust_speed'), h.get('cloud_coverage'),
+                                  h.get('precipitation'), pp, h.get('sun_irradiance')) | float -%}
+          {%- set entry = {'hour': lhour, 'score': sc, 'is_day': is_day, 'ts': ts} -%}
+          {%- set cur = g.days.get(date, []) -%}
+          {%- set g.days = dict(g.days, **{date: cur + [entry]}) -%}
+        {%- endfor -%}
+
+        {# ---- bester zusammenhängender Tagesblock ---- #}
+        {%- macro best_block(entries) -%}
+          {%- set day = entries | selectattr('is_day') | list | sort(attribute='hour') -%}
+          {%- if day | length == 0 -%}0
+          {%- else -%}
+            {%- set win = [cfg_block_hours | int, day | length] | min -%}
+            {%- set bb = namespace(v=0) -%}
+            {%- for i in range(0, day | length - win + 1) -%}
+              {%- set slice = day[i:i + win] -%}
+              {%- set mean = (slice | map(attribute='score') | sum) / win -%}
+              {%- set bb.v = [bb.v, mean] | max -%}
+            {%- endfor -%}
+            {%- set pen = 0.6 if (day | length) < ([cfg_block_hours | int, 4] | min) else 1.0 -%}
+            {{- (bb.v * pen) | round(1) -}}
+          {%- endif -%}
+        {%- endmacro -%}
+
+        {%- set today = now().strftime('%Y-%m-%d') -%}
+        {%- set tomorrow = (now() + timedelta(days=1)).strftime('%Y-%m-%d') -%}
+        {%- set today_score = best_block(g.days.get(today, [])) | float -%}
+        {%- set tomorrow_score = best_block(g.days.get(tomorrow, [])) | float -%}
+        {%- set nowts = as_timestamp(now()) -%}
+        {%- set dl_left = g.days.get(today, []) | selectattr('is_day') | selectattr('ts', 'gt', nowts) | list | length -%}
+
+        {# ---- bestes Fenster heute (Startstunde) ---- #}
+        {%- set tw = namespace(start=none, end=none, best=0) -%}
+        {%- set td_entries = g.days.get(today, []) | selectattr('is_day') | list | sort(attribute='hour') -%}
+        {%- if td_entries | length > 0 -%}
+          {%- set win = [cfg_block_hours | int, td_entries | length] | min -%}
+          {%- for i in range(0, td_entries | length - win + 1) -%}
+            {%- set slice = td_entries[i:i + win] -%}
+            {%- set mean = (slice | map(attribute='score') | sum) / win -%}
+            {%- if mean > tw.best -%}
+              {%- set tw.best = mean -%}
+              {%- set tw.start = slice[0].hour -%}
+              {%- set tw.end = slice[-1].hour + 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+
+        {# ---- Tagesvorschau ---- #}
+        {%- set fdays = namespace(l=[]) -%}
+        {%- for d in (g.days.keys() | list | sort)[:6] -%}
+          {%- set fdays.l = fdays.l + [{'date': d, 'score': best_block(g.days[d]) | float}] -%}
+        {%- endfor -%}
+
+        {# ---- Keller-Bewertung ---- #}
+        {%- set c_t = states(in_cellar_temp) | float(none) -%}
+        {%- set c_rh = states(in_cellar_humidity) | float(none) -%}
+        {%- set cur = states(we) -%}
+        {%- set o_t = (states(in_outdoor_temp) | float(none)) if in_outdoor_temp
+                      else state_attr(we, 'temperature') | float(none) -%}
+        {%- set o_rh = (states(in_outdoor_humidity) | float(none)) if in_outdoor_humidity
+                       else state_attr(we, 'humidity') | float(none) -%}
+        {%- set w_t = states(in_wall_temp) | float(none) if in_wall_temp else none -%}
+        {%- set cellar = namespace() -%}
+        {%- if c_t is none or c_rh is none -%}
+          {%- set cellar_obj = {'status': 'unknown', 'suitable': false, 'mold_risk': false} -%}
+        {%- else -%}
+          {%- set td_c = dew_point(c_t, c_rh) | float -%}
+          {%- set ah_c = abs_humidity(c_t, c_rh) | float -%}
+          {%- set td_o = dew_point(o_t, o_rh) | float if (o_t is not none and o_rh is not none) else none -%}
+          {%- set ah_o = abs_humidity(o_t, o_rh) | float if (o_t is not none and o_rh is not none) else none -%}
+          {%- set vent = (td_o is not none and td_o <= td_c - cfg_vent_margin) -%}
+          {%- if w_t is not none -%}
+            {%- set surf_rh = [c_rh * (sat_vp(c_t) | float) / (sat_vp(w_t) | float), 100] | min -%}
+          {%- else -%}
+            {%- set surf_rh = c_rh -%}
+          {%- endif -%}
+          {%- set mold = (surf_rh > 80) or (w_t is not none and w_t <= td_c) -%}
+          {%- set status = 'mold_risk' if mold else ('too_humid' if c_rh > cfg_rh_max
+                            else ('needs_dehumidifier' if not vent else 'ok')) -%}
+          {%- set cellar_obj = {
+                'status': status, 'humidity': c_rh | round(1), 'temperature': c_t | round(1),
+                'dewpoint_cellar': td_c, 'dewpoint_outdoor': td_o,
+                'abs_h_cellar': ah_c, 'abs_h_outdoor': ah_o,
+                'ventilation_useful': vent, 'surface_rh_estimate': surf_rh | round(1),
+                'suitable': (c_rh < cfg_rh_max and c_t >= cfg_t_min and not mold),
+                'mold_risk': mold } -%}
+        {%- endif -%}
+
+        {# ---- Empfehlung ---- #}
+        {%- set washed = is_state(in_washed, 'on') if in_washed else false -%}
+        {%- set cellar_ok = cellar_obj.get('suitable', false) -%}
+        {%- set r = namespace(state='dryer_recommended', reasons=[]) -%}
+        {%- if cellar_obj.get('mold_risk', false) -%}
+          {%- set r.state = 'mold_risk' -%}
+          {%- set r.reasons = ['Kellerbedingungen kritisch (Oberflächenfeuchte / Kondensation)'] -%}
+        {%- elif today_score >= cfg_hang and dl_left >= 4 -%}
+          {%- set r.state = 'hang_outside_now' -%}
+          {%- set r.reasons = ['Outdoor-Score heute ' ~ today_score | round ~ ', genug Tageslicht'] -%}
+        {%- elif today_score >= cfg_hang and dl_left < 4 -%}
+          {%- set r.state = 'hang_outside_later' -%}
+          {%- set r.reasons = ['Gut, aber nur noch ' ~ dl_left ~ ' h Tageslicht'] -%}
+        {%- elif today_score >= 55 and dl_left >= 3 -%}
+          {%- set r.state = 'outside_marginal' -%}
+          {%- set r.reasons = ['Outdoor-Score heute ' ~ today_score | round ~ ' – geht, beobachten'] -%}
+        {%- elif tomorrow_score >= cfg_hang and (tomorrow_score - today_score) >= cfg_wait_delta -%}
+          {%- if washed -%}
+            {%- set r.state = 'wait_for_tomorrow' -%}
+            {%- set r.reasons = ['Morgen deutlich besser (' ~ tomorrow_score | round ~ ' vs ' ~ today_score | round ~ ') – auf den Ständer'] -%}
+          {%- elif not cellar_ok -%}
+            {%- set r.state = 'defer_wash' -%}
+            {%- set r.reasons = ['Morgen Top-Wäschetag (' ~ tomorrow_score | round ~ '), Keller ungünstig – Waschen verschieben'] -%}
+          {%- else -%}
+            {%- set r.state = 'cellar_ok' if cellar_obj.status == 'ok' else 'cellar_dehumidifier' -%}
+            {%- set r.reasons = ['Keller nutzbar; morgen wäre draußen besser'] -%}
+          {%- endif -%}
+        {%- elif cellar_ok and cellar_obj.status == 'ok' -%}
+          {%- set r.state = 'cellar_ok' -%}
+          {%- set r.reasons = ['Draußen heute schwach (' ~ today_score | round ~ '), Keller ok – lüften + Ventilator'] -%}
+        {%- elif cellar_ok and cellar_obj.status == 'needs_dehumidifier' -%}
+          {%- set r.state = 'cellar_dehumidifier' -%}
+          {%- set r.reasons = ['Keller ok, aber Außenluft nicht trockener – Entfeuchter'] -%}
+        {%- else -%}
+          {%- set r.state = 'dryer_recommended' -%}
+          {%- set r.reasons = ['Weder draußen noch Keller günstig – Trockner / bestlüfteter Raum'] -%}
+        {%- endif -%}
+        {%- set headlines = {
+          'hang_outside_now': 'Raus damit – heute trocknet die Wäsche draußen gut.',
+          'hang_outside_later': 'Heute noch möglich, aber das Fenster ist knapp.',
+          'outside_marginal': 'Draußen geht, aber behalte den Himmel im Auge.',
+          'wait_for_tomorrow': 'Heute auf den Ständer – morgen wird es draußen deutlich besser.',
+          'defer_wash': 'Mit dem Waschen bis morgen warten lohnt sich.',
+          'cellar_ok': 'Ab in den Keller – lüften und Ventilator an.',
+          'cellar_dehumidifier': 'Keller ok, aber nur mit Entfeuchter.',
+          'dryer_recommended': 'Kein guter Trockenort – Wäschetrockner oder bestlüfteter Raum.',
+          'mold_risk': 'Achtung: Keller aktuell zu feucht – nichts Nasses reinhängen.'
+        } -%}
+        {{
+          {
+            'state': r.state,
+            'headline': headlines.get(r.state, ''),
+            'reasons': r.reasons,
+            'today': today_score,
+            'tomorrow': tomorrow_score,
+            'daylight_left_h': dl_left,
+            'window_start_hour': tw.start,
+            'window_end_hour': tw.end,
+            'forecast_days': fdays.l,
+            'cellar': cellar_obj
+          }
+        }}
+
+sensor:
+  - name: Laundry Advisor
+    unique_id: laundry_advisor_recommendation
+    state: "{{ result.state }}"
+    icon: >
+      {% set m = {'hang_outside_now': 'mdi:weather-sunny', 'hang_outside_later': 'mdi:weather-sunset',
+                  'outside_marginal': 'mdi:weather-partly-cloudy', 'wait_for_tomorrow': 'mdi:timer-sand',
+                  'defer_wash': 'mdi:washing-machine-off', 'cellar_ok': 'mdi:home-floor-b',
+                  'cellar_dehumidifier': 'mdi:air-humidifier', 'dryer_recommended': 'mdi:tumble-dryer',
+                  'mold_risk': 'mdi:alert'} %}
+      {{ m.get(result.state, 'mdi:tshirt-crew') }}
+    attributes:
+      headline: "{{ result.headline }}"
+      reasons: "{{ result.reasons }}"
+      outdoor_score: "{{ result.today }}"
+      outdoor_score_tomorrow: "{{ result.tomorrow }}"
+      daylight_left_h: "{{ result.daylight_left_h }}"
+      best_window_start_hour: "{{ result.window_start_hour }}"
+      best_window_end_hour: "{{ result.window_end_hour }}"
+      forecast_days: "{{ result.forecast_days }}"
+      cellar: "{{ result.cellar }}"
