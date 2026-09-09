@@ -7,7 +7,6 @@ from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -121,7 +120,7 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
         try:
             hourly = await self._forecast(weather, "hourly")
             daily = await self._forecast(weather, "daily")
-        except (HomeAssistantError, KeyError, ValueError, TypeError) as err:
+        except Exception as err:  # a flaky forecast must never kill the coordinator
             if self.data is not None:
                 _LOGGER.debug("forecast fetch failed, keeping last result: %s", err)
                 return self.data
@@ -131,7 +130,7 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
         if pe := entry.data.get(CONF_PRECIP_PROB):
             try:
                 prob = await self._forecast(pe, "hourly")
-            except (HomeAssistantError, KeyError, ValueError, TypeError) as err:
+            except Exception as err:  # noqa: BLE001
                 _LOGGER.debug("precip-prob fetch failed: %s", err)
 
         rooms = [

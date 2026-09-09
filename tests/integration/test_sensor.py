@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from homeassistant.components.sensor import ATTR_OPTIONS, SensorDeviceClass
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
@@ -10,7 +13,7 @@ from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.laundry_advisor import drying
-from custom_components.laundry_advisor.sensor import LaundryAdvisorSensor
+from custom_components.laundry_advisor.sensor import _OPTIONS, LaundryAdvisorSensor
 
 from .helpers import (
     DOMAIN,
@@ -71,7 +74,7 @@ async def test_native_value_and_attributes(hass: HomeAssistant) -> None:
 
     assert state is not None
     assert state.state == entry.runtime_data.data.state
-    assert state.state in drying.STATES
+    assert state.state in _OPTIONS
     assert set(state.attributes) >= _DOC_ATTRS
 
 
@@ -80,47 +83,62 @@ async def test_enum_device_class_and_options(hass: HomeAssistant) -> None:
     state = _sensor_state(hass, entry)
 
     assert state.attributes[ATTR_DEVICE_CLASS] == SensorDeviceClass.ENUM
-    assert state.attributes[ATTR_OPTIONS] == list(drying.STATES)
+    # "unknown" must not be advertised as an ENUM option
+    assert state.attributes[ATTR_OPTIONS] == _OPTIONS
+    assert "unknown" not in state.attributes[ATTR_OPTIONS]
 
 
-async def test_icon_mapping() -> None:
-    class _Coord:
-        class config_entry:
-            entry_id = "x"
+class _FakeCoord:
+    class config_entry:
+        entry_id = "x"
+        title = "Laundry Advisor"
 
-        data = drying.Result(
-            state="mold_risk",
-            reason_codes=[],
-            recommended_room=None,
-            recommended_fan=None,
-            recommended_dehumidifier=None,
-            outdoor_score=0.0,
-            outdoor_score_tomorrow=0.0,
-            outdoor_score_day_after=0.0,
-            daylight_left_h=0.0,
-            best_window_start_hour=None,
-            best_window_end_hour=None,
-            forecast_days=[],
-            rooms=[],
-        )
-
-    sensor = LaundryAdvisorSensor(_Coord())  # type: ignore[arg-type]
-    assert sensor.native_value == "mold_risk"
-    assert sensor.icon == "mdi:alert"
-
-    _Coord.data.state = "hang_outside_now"
-    assert sensor.icon == "mdi:weather-sunny"
-    _Coord.data.state = "totally_unknown_value"
-    assert sensor.icon == "mdi:tshirt-crew"
+    data: drying.Result | None = None
 
 
-async def test_native_value_none_when_no_data() -> None:
-    class _Coord:
-        class config_entry:
-            entry_id = "x"
+def _result(state: str) -> drying.Result:
+    return drying.Result(
+        state=state,
+        reason_codes=[],
+        recommended_room=None,
+        recommended_fan=None,
+        recommended_dehumidifier=None,
+        outdoor_score=0.0,
+        outdoor_score_tomorrow=0.0,
+        outdoor_score_day_after=0.0,
+        daylight_left_h=0.0,
+        best_window_start_hour=None,
+        best_window_end_hour=None,
+        forecast_days=[],
+        rooms=[],
+    )
 
-        data = None
 
-    sensor = LaundryAdvisorSensor(_Coord())  # type: ignore[arg-type]
+def test_native_value_falls_back_to_none_on_unknown() -> None:
+    coord = _FakeCoord()
+    coord.data = _result("unknown")
+    assert LaundryAdvisorSensor(coord).native_value is None  # type: ignore[arg-type]
+    coord.data = _result("mold_risk")
+    assert LaundryAdvisorSensor(coord).native_value == "mold_risk"  # type: ignore[arg-type]
+
+
+def test_native_value_none_when_no_data() -> None:
+    coord = _FakeCoord()
+    coord.data = None
+    sensor = LaundryAdvisorSensor(coord)  # type: ignore[arg-type]
     assert sensor.native_value is None
     assert sensor.extra_state_attributes is None
+
+
+def test_icons_json_covers_every_state() -> None:
+    icons = json.loads(
+        (
+            Path(__file__).resolve().parents[2]
+            / "custom_components"
+            / "laundry_advisor"
+            / "icons.json"
+        ).read_text()
+    )
+    mapped = icons["entity"]["sensor"]["recommendation"]["state"]
+    assert set(mapped) == set(_OPTIONS)
+    assert icons["entity"]["sensor"]["recommendation"]["default"]
