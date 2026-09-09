@@ -50,11 +50,10 @@ room is recommended instead (`best_effort`).
 A room counts only when `name` + `temp` + `humidity` are all set.
 
 ### Section "Fine-tuning" (collapsed)
-`block_hours`, `day_start_hour`, `day_end_hour`, `score_hang`, `score_marginal`,
+`block_hours`, `day_start_hour`, `day_end_hour`, `score_hang` (70),
+`score_marginal` (55 – at/above it the outside recommendation is still made),
 `wait_delta`, `weight_wind/humidity/sun/temperature`,
-`room_rh_max` (65), `room_temp_min` (15), `vent_dewpoint_margin` (5),
-`indoor_score_bias` (penalty for indoor rooms in the ranking, default 15 –
-"outside is preferred").
+`room_rh_max` (65), `room_temp_min` (15), `vent_dewpoint_margin` (5).
 
 ## Room score (per room, 0–100)
 
@@ -78,20 +77,18 @@ room_score:
   clamped 0..100
 ```
 
-## Ranking & recommendation
+## Recommendation
 
-Option list: `outside` (score = `today_outdoor_score`) + one per active room
-(`room_score`). Indoor rooms get `− indoor_score_bias` for the ranking (not for
-the display) so "outside" wins on a tie.
-
-Sorted descending. Then the state machine in
-[`docs/logic.md`](logic.md#recommendation-wait-logic).
+"Outside" enters the recommendation via absolute `score_hang` / `score_marginal`
+thresholds (see [`docs/logic.md`](logic.md#bands-outdoor)); the rooms are ranked
+only among each other, and the best usable one is offered when outside is out. A
+unified ranking is [#8](https://github.com/chlctt/ha-laundry-advisor/issues/8).
 
 ## States (enum)
 
 `hang_outside_now`, `hang_outside_later`, `outside_marginal`,
 `wait_for_tomorrow`, `defer_wash`,
-`room_ventilate`, `room_dehumidify`,
+`room_ok`, `room_ventilate`, `room_dehumidify`,
 `dryer_recommended`, `best_effort`, `mold_risk`, `unknown`
 
 ## Sensor attributes
@@ -147,9 +144,16 @@ Card: `src/localize/{en,de}.json`, chosen via `hass.locale.language` /
 - `cellar` row removed.
 - Config: `show_rooms` instead of `show_cellar`.
 
-## Known rough edges (→ v0.2.1)
+## v0.2.1 fixes
 
-- When a room is `suitable` but airing does not help and there is no
-  dehumidifier, the state is still `room_ventilate` and the headline says "air it
-  out", while a reason says "airing does nothing" – slightly contradictory.
-  Should become a neutral "hang it there, warm & dry enough".
+- New state `room_ok`: a suitable room that needs no airing and has no
+  dehumidifier is no longer forced into the contradictory `room_ventilate`
+  ("air it out" + "airing does nothing").
+- `score_marginal` is wired up (was a dead input); `hang_outside_later` needs
+  ≥ 1 daylight hour; `no_forecast` → `unknown` instead of unavailable;
+  `advisor_name` / `advisor_unique_id` inputs; `continue_on_error` on the
+  forecast calls; recompute every 10 min.
+
+Open: [#8](https://github.com/chlctt/ha-laundry-advisor/issues/8) unified ranking,
+[#9](https://github.com/chlctt/ha-laundry-advisor/issues/9) forecast interval,
+[#10](https://github.com/chlctt/ha-laundry-advisor/issues/10) room-2..5 trigger.

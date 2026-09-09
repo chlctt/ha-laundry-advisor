@@ -84,6 +84,21 @@ blueprint:
       name: Language & output
       icon: mdi:translate
       input:
+        advisor_name:
+          name: Sensor name
+          description: Friendly name of the created sensor.
+          default: Laundry Advisor
+          selector:
+            text: {}
+        advisor_unique_id:
+          name: Sensor unique_id
+          description: >
+            Change this only if you instantiate the blueprint more than once
+            (otherwise the two sensors collide). Changing it on an existing
+            instance creates a new entity_id.
+          default: laundry_advisor_recommendation
+          selector:
+            text: {}
         language:
           name: Text language
           description: Affects `headline` and `reasons`. The card also localises on its own.
@@ -348,8 +363,11 @@ blueprint:
           selector:
             number: {min: 40, max: 100}
         score_marginal:
-          name: Score threshold "marginal"
-          default: 45
+          name: Score threshold "marginal outside"
+          description: >
+            At/above this the outside recommendation is still made
+            (`outside_marginal`); below it the best indoor room is used.
+          default: 55
           selector:
             number: {min: 20, max: 80}
         wait_delta:
@@ -357,14 +375,6 @@ blueprint:
           default: 20
           selector:
             number: {min: 5, max: 50}
-        indoor_score_bias:
-          name: Indoor penalty in the ranking
-          description: >
-            "Outside" wins at a similar score. Ranking only, not applied to the
-            displayed room scores.
-          default: 15
-          selector:
-            number: {min: 0, max: 40}
         weight_wind:
           name: Weight – wind
           default: 35
@@ -441,7 +451,6 @@ variables:
   cfg_hang: !input score_hang
   cfg_marginal: !input score_marginal
   cfg_wait_delta: !input wait_delta
-  cfg_indoor_bias: !input indoor_score_bias
   cfg_w_wind: !input weight_wind
   cfg_w_hum: !input weight_humidity
   cfg_w_sun: !input weight_sun
@@ -451,8 +460,11 @@ variables:
   cfg_vent_margin: !input vent_dewpoint_margin
 
 trigger:
+  # Recomputed every 10 min, at HA start, and when the room 1 sensors change.
+  # Sensor changes in rooms 2-5 are only picked up on the next 10-min tick
+  # (blueprint state triggers cannot take a variable list of optional inputs).
   - platform: time_pattern
-    minutes: "/15"
+    minutes: "/10"
   - platform: homeassistant
     event: start
   - platform: state
@@ -461,13 +473,19 @@ trigger:
       - !input room_1_humidity
 
 action:
+  - variables:
+      fc_hourly: {}
+      fc_daily: {}
+      fc_prob: {}
   - action: weather.get_forecasts
+    continue_on_error: true
     target:
       entity_id: !input weather_entity
     data:
       type: hourly
     response_variable: fc_hourly
   - action: weather.get_forecasts
+    continue_on_error: true
     target:
       entity_id: !input weather_entity
     data:
@@ -478,21 +496,20 @@ action:
         value_template: "{{ prob_entity is not none and prob_entity | string | trim != '' }}"
     then:
       - action: weather.get_forecasts
+        continue_on_error: true
         target:
           entity_id: !input precip_prob_entity
         data:
           type: hourly
         response_variable: fc_prob
-    else:
-      - variables:
-          fc_prob: {}
   - variables:
       result: >
         {%- set we = weather_entity -%}
-        {%- set hours = (fc_hourly.get(we, {}).get('forecast', [])) -%}
+        {%- set hours = ((fc_hourly or {}).get(we, {}).get('forecast', [])) -%}
         {%- set pe = prob_entity -%}
-        {%- set prob_hours = (fc_prob.get(pe, {}).get('forecast', []) if pe else []) -%}
-        {%- set lang = cfg_language if cfg_language in ['de', 'en'] else 'de' -%}
+        {%- set prob_hours = ((fc_prob or {}).get(pe, {}).get('forecast', []) if pe else []) -%}
+        {%- set forecast_ok = hours | length > 0 -%}
+        {%- set lang = cfg_language if cfg_language in ['de', 'en'] else 'en' -%}
 
         {# ================= macros ================= #}
         {%- macro dew_point(t, rh) -%}
@@ -646,6 +663,7 @@ action:
               'outside_marginal': 'Draußen geht, aber behalte den Himmel im Auge.',
               'wait_for_tomorrow': 'Heute auf den Ständer – morgen wird es draußen deutlich besser.',
               'defer_wash': 'Mit dem Waschen bis morgen warten lohnt sich.',
+              'room_ok': 'Bester Ort: %s – warm und trocken genug, ein Ventilator beschleunigt.',
               'room_ventilate': 'Bester Ort: %s – Fenster stoßlüften und Ventilator an.',
               'room_dehumidify': 'Bester Ort: %s – mit Entfeuchter (Lüften bringt gerade nichts).',
               'dryer_recommended': 'Kein guter Trockenort – ab in den Wäschetrockner.',
@@ -660,10 +678,12 @@ action:
               'tomorrow_better': 'Morgen deutlich besser ({t} statt {d}).',
               'room_best': '{n}: bester Innenraum (Score {s}).',
               'room_too_humid': '{n} bei {rh}% rF – über der Grenze.',
+              'room_dry_enough': '{n} bei {rh}% rF ist trocken genug.',
               'vent_useful': 'Außenluft ist trockener – Lüften hilft.',
               'vent_useless': 'Außenluft nicht trockener – Lüften bringt nichts.',
               'no_room': 'Kein Innenraum unter der Feuchtegrenze.',
               'no_dryer': 'Kein Wäschetrockner konfiguriert.',
+              'no_forecast': 'Keine Wettervorhersage verfügbar.',
               'mold': '{n}: Schimmelgefahr (rF über 80%).'
             }
           },
@@ -674,6 +694,7 @@ action:
               'outside_marginal': 'Outside works, but keep an eye on the sky.',
               'wait_for_tomorrow': 'Put it on a rack today – tomorrow is clearly better outside.',
               'defer_wash': 'Worth waiting until tomorrow to wash.',
+              'room_ok': 'Best spot: %s – warm and dry enough; a fan speeds it up.',
               'room_ventilate': 'Best spot: %s – air it out and run a fan.',
               'room_dehumidify': 'Best spot: %s – with a dehumidifier (airing does nothing right now).',
               'dryer_recommended': 'No good drying spot – use the tumble dryer.',
@@ -688,10 +709,12 @@ action:
               'tomorrow_better': 'Tomorrow clearly better ({t} vs {d}).',
               'room_best': '{n}: best indoor room (score {s}).',
               'room_too_humid': '{n} at {rh}% RH – above the limit.',
+              'room_dry_enough': '{n} at {rh}% RH is dry enough.',
               'vent_useful': 'Outdoor air is drier – airing helps.',
               'vent_useless': 'Outdoor air not drier – airing does nothing.',
               'no_room': 'No indoor room below the humidity limit.',
               'no_dryer': 'No tumble dryer configured.',
+              'no_forecast': 'No weather forecast available.',
               'mold': '{n}: mould risk (RH above 80%).'
             }
           }
@@ -700,16 +723,19 @@ action:
 
         {# ================= state machine ================= #}
         {%- set st = namespace(state='unknown', room=none, codes=[]) -%}
-        {%- if all_mold -%}
+        {%- if not forecast_ok -%}
+          {%- set st.state = 'unknown' -%}
+          {%- set st.codes = [{'code': 'no_forecast'}] -%}
+        {%- elif all_mold -%}
           {%- set st.state = 'mold_risk' -%}
           {%- set st.codes = [{'code': 'mold', 'n': best_room.name}] -%}
         {%- elif today_score >= cfg_hang and dl_left >= 4 -%}
           {%- set st.state = 'hang_outside_now' -%}
           {%- set st.codes = [{'code': 'outdoor_good', 's': today_score | round}] -%}
-        {%- elif today_score >= cfg_hang and dl_left < 4 -%}
+        {%- elif today_score >= cfg_hang and dl_left >= 1 -%}
           {%- set st.state = 'hang_outside_later' -%}
           {%- set st.codes = [{'code': 'outdoor_good', 's': today_score | round}] -%}
-        {%- elif today_score >= 55 and dl_left >= 3 -%}
+        {%- elif today_score >= cfg_marginal and dl_left >= 3 -%}
           {%- set st.state = 'outside_marginal' -%}
           {%- set st.codes = [{'code': 'outdoor_good', 's': today_score | round}] -%}
         {%- elif tomorrow_score >= cfg_hang and (tomorrow_score - today_score) >= cfg_wait_delta and not any_suitable -%}
@@ -718,13 +744,16 @@ action:
         {%- elif any_suitable -%}
           {%- set cand = (rooms_sorted | selectattr('suitable') | list)[0] -%}
           {%- set st.room = cand.name -%}
-          {%- if cand.ventilation_useful or not cand.has_dehumidifier -%}
+          {%- if cand.ventilation_useful -%}
             {%- set st.state = 'room_ventilate' -%}
-            {%- set st.codes = [{'code': 'room_best', 'n': cand.name, 's': cand.score | round},
-                                {'code': ('vent_useful' if cand.ventilation_useful else 'vent_useless')}] -%}
-          {%- else -%}
+            {%- set st.codes = [{'code': 'room_best', 'n': cand.name, 's': cand.score | round}, {'code': 'vent_useful'}] -%}
+          {%- elif cand.has_dehumidifier and cand.humidity >= 55 -%}
             {%- set st.state = 'room_dehumidify' -%}
             {%- set st.codes = [{'code': 'room_best', 'n': cand.name, 's': cand.score | round}, {'code': 'vent_useless'}] -%}
+          {%- else -%}
+            {%- set st.state = 'room_ok' -%}
+            {%- set st.codes = [{'code': 'room_best', 'n': cand.name, 's': cand.score | round},
+                                {'code': 'room_dry_enough', 'n': cand.name, 'rh': cand.humidity | round}] -%}
           {%- endif -%}
         {%- elif has_dryer -%}
           {%- set st.state = 'dryer_recommended' -%}
@@ -734,7 +763,8 @@ action:
           {%- set st.room = best_room.name -%}
           {%- set st.codes = [{'code': 'no_room'}, {'code': 'no_dryer'}, {'code': 'room_best', 'n': best_room.name, 's': best_room.score | round}] -%}
         {%- else -%}
-          {%- set st.state = 'dryer_recommended' if has_dryer else 'unknown' -%}
+          {%- set st.state = 'unknown' -%}
+          {%- set st.codes = [{'code': 'no_room'}] -%}
         {%- endif -%}
 
         {# mark the recommended room #}
@@ -777,15 +807,16 @@ action:
         }}
 
 sensor:
-  - name: Laundry Advisor
-    unique_id: laundry_advisor_recommendation
+  - name: !input advisor_name
+    unique_id: !input advisor_unique_id
     state: "{{ result.state }}"
     icon: >
       {% set m = {'hang_outside_now': 'mdi:weather-sunny', 'hang_outside_later': 'mdi:weather-sunset',
                   'outside_marginal': 'mdi:weather-partly-cloudy', 'wait_for_tomorrow': 'mdi:timer-sand',
-                  'defer_wash': 'mdi:washing-machine-off', 'room_ventilate': 'mdi:window-open-variant',
-                  'room_dehumidify': 'mdi:air-humidifier', 'dryer_recommended': 'mdi:tumble-dryer',
-                  'best_effort': 'mdi:home-alert', 'mold_risk': 'mdi:alert'} %}
+                  'defer_wash': 'mdi:washing-machine-off', 'room_ok': 'mdi:tshirt-crew',
+                  'room_ventilate': 'mdi:window-open-variant', 'room_dehumidify': 'mdi:air-humidifier',
+                  'dryer_recommended': 'mdi:tumble-dryer', 'best_effort': 'mdi:home-alert',
+                  'mold_risk': 'mdi:alert'} %}
       {{ m.get(result.state, 'mdi:tshirt-crew') }}
     attributes:
       language: "{{ result.language }}"

@@ -30,11 +30,22 @@ thin/dark fabric, so the sun term is not negligible. A Penman approach
 approximates the initial (constant-rate) drying phase; near the end it no longer
 holds. Rain makes drying impossible → hard gate.
 
-## Bands
+## Bands (outdoor)
 
-- ≥ 70: hang outside
-- 45–69: works, keep an eye on it
-- < 45: indoors
+- `today_score ≥ score_hang` (70): hang outside
+- `score_hang > today_score ≥ score_marginal` (55): `outside_marginal` – still
+  recommend outside, keep an eye on it
+- `< score_marginal`: indoors
+
+`score_hang` needs ≥ 4 daylight hours left for `hang_outside_now`, ≥ 1 for
+`hang_outside_later`; `outside_marginal` needs ≥ 3.
+
+**No unified ranking.** "Outside" enters via these absolute thresholds; the rooms
+are only ranked among each other. Whether to fold everything into one ranking is
+[#8](https://github.com/chlctt/ha-laundry-advisor/issues/8).
+
+The forecast is assumed **hourly** and precipitation in **mm/h**
+([#9](https://github.com/chlctt/ha-laundry-advisor/issues/9)).
 
 ## Room assessment
 
@@ -56,12 +67,6 @@ cellars); mould on a surface needs sustained > ~80 % RH / aw ≈ 0.8
 (Sedlbauer / Fraunhofer IBP isopleth model). One wash load releases ~2 L of water
 into the room air.
 
-## Ranking
-
-Options: `outside` (score = `today_outdoor_score`) + one per active room
-(`room_score`). Indoor rooms get `− indoor_score_bias` for the ranking (not for
-the displayed score) so "outside" wins on a tie. Sorted descending.
-
 ## Recommendation ("wait" logic)
 
 Laundry must not stay in the machine (musty smell from *Moraxella osloensis*; the
@@ -69,16 +74,18 @@ often-quoted "4–5 h" is a rule of thumb without peer review). "Wait" therefore
 always means: onto a drying rack.
 
 ```
-mould across ALL active rooms                   → mold_risk (warning, overrides)
+no forecast available                           → unknown (no_forecast)
+mould across ALL active rooms                    → mold_risk (warning, overrides)
 outside >= score_hang, daylight >= 4 h           → hang_outside_now
-outside >= score_hang, daylight < 4 h            → hang_outside_later
-outside >= 55, daylight >= 3 h                   → outside_marginal
+outside >= score_hang, daylight >= 1 h           → hang_outside_later
+outside >= score_marginal, daylight >= 3 h       → outside_marginal
 tomorrow >= score_hang and (tomorrow − today) >= wait_delta and no room usable:
     already washed                              → wait_for_tomorrow
     not washed                                  → defer_wash
 best room is usable:
-    airing helps or no dehumidifier             → room_ventilate  (recommended_room)
-    else                                        → room_dehumidify
+    airing helps                                → room_ventilate  (recommended_room)
+    dehumidifier present and room RH >= 55 %     → room_dehumidify
+    else                                        → room_ok         (warm & dry enough)
 no room usable:
     dryer_entity set                            → dryer_recommended
     else                                        → best_effort      (least-bad room + warning)
