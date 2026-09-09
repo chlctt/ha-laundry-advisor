@@ -1,0 +1,22 @@
+{
+  "entity": {
+    "sensor": {
+      "recommendation": {
+        "default": "mdi:tshirt-crew",
+        "state": {
+          "hang_outside_now": "mdi:weather-sunny",
+          "hang_outside_later": "mdi:weather-sunset",
+          "outside_marginal": "mdi:weather-partly-cloudy",
+          "wait_for_tomorrow": "mdi:timer-sand",
+          "defer_wash": "mdi:washing-machine-off",
+          "room_ok": "mdi:tshirt-crew",
+          "room_ventilate": "mdi:window-open-variant",
+          "room_dehumidify": "mdi:air-humidifier",
+          "dryer_recommended": "mdi:tumble-dryer",
+          "best_effort": "mdi:home-alert",
+          "mold_risk": "mdi:alert"
+        }
+      }
+    }
+  }
+}

@@ -182,16 +182,22 @@ anyone not ready to switch.
 
 ## CI
 
-- `hassfest` (HA's integration manifest/structure check)
+- `blueprint` – yamllint + parse the legacy blueprint
+- `lint` – `ruff check` + `ruff format --check`
+- `test-logic` – `pytest tests/test_drying.py` (no HA)
+- `test-integration` – `pytest tests/integration/` with pytest-homeassistant-custom-component
+- `hassfest` – HA's integration manifest/structure check
 - `hacs/action` with `category: integration`
-- `ruff` + `mypy` on `custom_components/`
-- `pytest` on `tests/` (the point of the Python port)
+
+## Verified
+
+- Built and tested against **Home Assistant 2026.9.1** (hassfest clean, 62 tests
+  green). Every HA API used was checked against that version.
+- `hacs.json` pins `homeassistant: 2026.9.0` – earlier versions may work
+  (subentries landed ~2025.2) but are untested; users on older HA can use the
+  legacy blueprint.
 
 ## Open questions / later
-
-- **HA minimum version**: config subentries need ≥ 2025.3 (approx). Confirm and
-  pin in `manifest.json`. If too new, fall back to a JSON list of rooms in
-  options.
 - Blueprint #8 (unified outside-vs-rooms ranking): easy to add in Python later.
 - Actually control the fan/dehumidifier from the integration (a switch/number
   entity or a service) instead of leaving it to the example automation.

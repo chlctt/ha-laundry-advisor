@@ -14,9 +14,12 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "ASYNC"]
 ignore = ["RUF001", "RUF002", "RUF003", "RUF012"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["E402", "E501", "S101"]
+"tests/**" = ["E402", "E501", "S101"]
 
 [tool.pytest.ini_options]
+# tests/test_drying.py is pure (run it anywhere). tests/integration/* needs
+# pytest-homeassistant-custom-component, which does not import on native Windows
+# (no fcntl) – run those under WSL/Linux, or add `-p no:homeassistant` to skip.
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

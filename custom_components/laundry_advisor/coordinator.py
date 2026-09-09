@@ -7,7 +7,7 @@ from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
-from homeassistant.helpers.debounce import Debouncer
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -76,9 +76,6 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
             update_interval=timedelta(minutes=int(opts[CONF_UPDATE_INTERVAL])),
         )
         self._opts = opts
-        self._debouncer = Debouncer(
-            hass, _LOGGER, cooldown=10.0, immediate=False, function=self.async_refresh
-        )
 
     # -- lifecycle ------------------------------------------------------------
     async def async_setup(self) -> None:
@@ -111,7 +108,10 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
 
     @callback
     def _handle_state_change(self, _event: Event[EventStateChangedData]) -> None:
-        self._debouncer.async_schedule_call()
+        # DataUpdateCoordinator.async_request_refresh is itself debounced.
+        self.config_entry.async_create_task(
+            self.hass, self.async_request_refresh(), eager_start=False
+        )
 
     # -- data ---------------------------------------------------------------
     async def _async_update_data(self) -> drying.Result:
@@ -121,7 +121,7 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
         try:
             hourly = await self._forecast(weather, "hourly")
             daily = await self._forecast(weather, "daily")
-        except Exception as err:
+        except (HomeAssistantError, KeyError, ValueError, TypeError) as err:
             if self.data is not None:
                 _LOGGER.debug("forecast fetch failed, keeping last result: %s", err)
                 return self.data
@@ -131,7 +131,7 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
         if pe := entry.data.get(CONF_PRECIP_PROB):
             try:
                 prob = await self._forecast(pe, "hourly")
-            except Exception as err:
+            except (HomeAssistantError, KeyError, ValueError, TypeError) as err:
                 _LOGGER.debug("precip-prob fetch failed: %s", err)
 
         rooms = [

@@ -54,13 +54,17 @@ async def test_state_change_schedules_refresh(hass: HomeAssistant) -> None:
     coordinator = LaundryCoordinator(hass, entry)
     await coordinator.async_setup()
 
-    scheduled: list[int] = []
-    coordinator._debouncer.async_schedule_call = lambda: scheduled.append(1)  # type: ignore[method-assign]
+    calls: list[int] = []
+
+    async def _fake_refresh() -> None:
+        calls.append(1)
+
+    coordinator.async_request_refresh = _fake_refresh  # type: ignore[method-assign]
 
     hass.states.async_set(ROOM_TEMP, "21")
     await hass.async_block_till_done()
 
-    assert scheduled
+    assert calls
 
 
 async def test_forecast_failure_keeps_last_data(hass: HomeAssistant) -> None:
