@@ -7,8 +7,8 @@ blueprint:
 
 
     Erzeugt **einen** Sensor `sensor.<name>` mit dem Empfehlungs-Zustand als
-    State und allen weiteren Werten (Outdoor-Score heute/morgen, Teil-Scores,
-    Tagesvorschau, Keller-Bewertung, bestes Zeitfenster) als Attributen.
+    State und allen weiteren Werten (Outdoor-Score heute/morgen, Tagesvorschau,
+    Keller-Bewertung, bestes Zeitfenster) als Attributen.
 
 
     Nutzt `weather.get_forecasts` (stündlich + täglich). Optional eine zweite
@@ -463,7 +463,7 @@ action:
           {%- set r.reasons = ['Keller ok, aber Außenluft nicht trockener – Entfeuchter'] -%}
         {%- else -%}
           {%- set r.state = 'dryer_recommended' -%}
-          {%- set r.reasons = ['Weder draußen noch Keller günstig – Trockner / bestlüfteter Raum'] -%}
+          {%- set r.reasons = ['Weder draußen noch Keller günstig – Trockner / bestbelüfteter Raum'] -%}
         {%- endif -%}
         {%- set headlines = {
           'hang_outside_now': 'Raus damit – heute trocknet die Wäsche draußen gut.',
@@ -473,7 +473,7 @@ action:
           'defer_wash': 'Mit dem Waschen bis morgen warten lohnt sich.',
           'cellar_ok': 'Ab in den Keller – lüften und Ventilator an.',
           'cellar_dehumidifier': 'Keller ok, aber nur mit Entfeuchter.',
-          'dryer_recommended': 'Kein guter Trockenort – Wäschetrockner oder bestlüfteter Raum.',
+          'dryer_recommended': 'Kein guter Trockenort – Wäschetrockner oder bestbelüfteter Raum.',
           'mold_risk': 'Achtung: Keller aktuell zu feucht – nichts Nasses reinhängen.'
         } -%}
         {{

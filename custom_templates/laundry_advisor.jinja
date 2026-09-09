@@ -195,7 +195,7 @@
   {%- set reasons.l = ['Keller ok, aber Außenluft nicht trockener – Entfeuchter statt Lüften'] -%}
 {%- else -%}
   {%- set state = 'dryer_recommended' -%}
-  {%- set reasons.l = ['Weder draußen noch Keller günstig – Trockner / bestlüfteter Raum'] -%}
+  {%- set reasons.l = ['Weder draußen noch Keller günstig – Trockner / bestbelüfteter Raum'] -%}
 {%- endif -%}
 
 {%- set headlines = {
@@ -206,7 +206,7 @@
   'defer_wash': 'Mit dem Waschen bis morgen warten lohnt sich.',
   'cellar_ok': 'Ab in den Keller – lüften und Ventilator an.',
   'cellar_dehumidifier': 'Keller ok, aber nur mit Entfeuchter (Lüften bringt nichts).',
-  'dryer_recommended': 'Kein guter Trockenort – Wäschetrockner oder bestlüfteter Raum.',
+  'dryer_recommended': 'Kein guter Trockenort – Wäschetrockner oder bestbelüfteter Raum.',
   'mold_risk': 'Achtung: Keller aktuell zu feucht – nichts Nasses reinhängen.'
 } -%}
 {{ {'state': state, 'headline': headlines.get(state, ''), 'reasons': reasons.l} | to_json }}

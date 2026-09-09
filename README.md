@@ -39,7 +39,7 @@ die Empfehlung ist und dessen **Attribute** alle Detailwerte liefern:
 | `defer_wash` | Mit dem **Waschen** auf morgen warten |
 | `cellar_ok` | Keller – mit Fensterlüftung + Ventilator |
 | `cellar_dehumidifier` | Keller – nur mit Entfeuchter (Lüften bringt nichts) |
-| `dryer_recommended` | Wäschetrockner / bestlüfteter Wohnraum |
+| `dryer_recommended` | Wäschetrockner / bestbelüfteter Wohnraum |
 | `mold_risk` | Warnung: Keller aktuell zu feucht, nichts Nasses reinhängen |
 
 ---
