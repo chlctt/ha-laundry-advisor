@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wäschewetter",
+        "description": "Räume fügst du nach der Einrichtung auf der Integrationsseite hinzu.",
+        "data": {
+          "weather_entity": "Wetter-Entität (primär)",
+          "precip_prob_entity": "Zweit-Wetter für die Regenwahrscheinlichkeit",
+          "outdoor_temp": "Außen-Temperatursensor",
+          "outdoor_humidity": "Außen-Feuchtesensor",
+          "dryer_entity": "Wäschetrockner-Entität",
+          "already_washed_boolean": "Helfer: Wäsche ist bereits gewaschen"
+        },
+        "data_description": {
+          "weather_entity": "Liefert die stündliche und tägliche Vorhersage.",
+          "precip_prob_entity": "Leer lassen, wenn die Primärquelle selbst precipitation_probability liefert.",
+          "dryer_entity": "Beliebige Entität, die den Trockner repräsentiert. Nur Vorhandensein-Flag.",
+          "already_washed_boolean": "input_boolean. Steuert wait_for_tomorrow vs. defer_wash."
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Diese Wetter-Entität wird bereits von einem Wäschewetter-Eintrag genutzt."
+    }
+  },
+  "config_subentries": {
+    "room": {
+      "entry_type": "Trockenraum",
+      "initiate_flow": {
+        "user": "Trockenraum hinzufügen",
+        "reconfigure": "Trockenraum bearbeiten"
+      },
+      "step": {
+        "user": {
+          "title": "Trockenraum",
+          "data": {
+            "name": "Name",
+            "temp_entity": "Temperatursensor",
+            "humidity_entity": "Feuchtesensor",
+            "wall_temp_entity": "Sensor für die kälteste Wand-/Oberflächentemperatur",
+            "fan_entity": "Ventilator",
+            "dehumidifier_entity": "Entfeuchter"
+          },
+          "data_description": {
+            "wall_temp_entity": "Optional. Ohne diesen Wert nutzt der Schimmel-Guard die Raumfeuchte.",
+            "fan_entity": "Optional.",
+            "dehumidifier_entity": "Optional."
+          }
+        },
+        "reconfigure": {
+          "title": "Trockenraum",
+          "data": {
+            "name": "Name",
+            "temp_entity": "Temperatursensor",
+            "humidity_entity": "Feuchtesensor",
+            "wall_temp_entity": "Sensor für die kälteste Wand-/Oberflächentemperatur",
+            "fan_entity": "Ventilator",
+            "dehumidifier_entity": "Entfeuchter"
+          }
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Feineinstellung",
+        "data": {
+          "update_interval_minutes": "Aktualisierungsintervall (Minuten)",
+          "block_hours": "Länge des Bewertungsfensters (h)",
+          "day_start_hour": "Tageslicht-Beginn (Stunde, lokal)",
+          "day_end_hour": "Tageslicht-Ende (Stunde, lokal)",
+          "score_hang": "Score-Schwelle „raushängen“",
+          "score_marginal": "Score-Schwelle „grenzwertig draußen“",
+          "wait_delta": "Nötiger Score-Vorsprung von morgen für „warten“",
+          "weight_wind": "Gewicht – Wind",
+          "weight_humidity": "Gewicht – Luftfeuchte / VPD",
+          "weight_sun": "Gewicht – Sonne",
+          "weight_temperature": "Gewicht – Temperatur",
+          "room_rh_max": "Maximale Raum-rF für „nutzbar“ (%)",
+          "room_temp_min": "Minimale Raum-Temperatur für „nutzbar“ (°C)",
+          "vent_dewpoint_margin": "Taupunkt-Marge fürs Lüften (K)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "recommendation": {
+        "state": {
+          "hang_outside_now": "Jetzt raushängen",
+          "hang_outside_later": "Später raushängen",
+          "outside_marginal": "Draußen, grenzwertig",
+          "wait_for_tomorrow": "Auf morgen warten",
+          "defer_wash": "Waschen verschieben",
+          "room_ok": "Bester Raum",
+          "room_ventilate": "Bester Raum, lüften",
+          "room_dehumidify": "Bester Raum, Entfeuchter",
+          "dryer_recommended": "Wäschetrockner",
+          "best_effort": "Notlösung",
+          "mold_risk": "Schimmelgefahr",
+          "unknown": "Unbekannt"
+        }
+      }
+    }
+  }
+}
