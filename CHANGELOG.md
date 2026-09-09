@@ -8,9 +8,10 @@ Versionierung nach [SemVer](https://semver.org/lang/de/).
 
 ### Added
 - Template-Blueprint `blueprints/template/laundry_advisor.yaml` (MVP):
-  Outdoor-Score heute/morgen, 9 Empfehlungs-Zustände, Keller-Bewertung
+  Outdoor-Score heute/morgen/übermorgen, 9 Empfehlungs-Zustände, Keller-Bewertung
   (Taupunkt/Lüften/Schimmel-Guard), Tagesvorschau, bestes Zeitfenster –
   alles als ein Sensor mit Attributen.
+- Attribut `outdoor_score_day_after` (übermorgen).
 - Kern-Makros `custom_templates/laundry_advisor.jinja` (für die Package-Variante
   und zum Wiederverwenden).
 - `docs/logic.md` – Herleitung & Quellen.

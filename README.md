@@ -22,7 +22,7 @@ die Empfehlung ist und dessen **Attribute** alle Detailwerte liefern:
 | Empfehlungs-Zustand | `state` |
 | Klartext-Satz | `attributes.headline` |
 | Begründungen | `attributes.reasons` |
-| Outdoor-Score heute / morgen (0–100) | `attributes.outdoor_score` / `_tomorrow` |
+| Outdoor-Score heute / morgen / übermorgen (0–100) | `attributes.outdoor_score` / `_tomorrow` / `_day_after` |
 | Bestes Aufhäng-Fenster heute | `attributes.best_window_start_hour` / `_end_hour` |
 | Tagesvorschau (bis 6 Tage) | `attributes.forecast_days` |
 | Keller-Bewertung | `attributes.cellar` (Objekt) |

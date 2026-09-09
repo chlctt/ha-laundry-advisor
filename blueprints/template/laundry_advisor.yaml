@@ -7,8 +7,8 @@ blueprint:
 
 
     Erzeugt **einen** Sensor `sensor.<name>` mit dem Empfehlungs-Zustand als
-    State und allen weiteren Werten (Outdoor-Score heute/morgen, Tagesvorschau,
-    Keller-Bewertung, bestes Zeitfenster) als Attributen.
+    State und allen weiteren Werten (Outdoor-Score heute/morgen/übermorgen,
+    Tagesvorschau, Keller-Bewertung, bestes Zeitfenster) als Attributen.
 
 
     Nutzt `weather.get_forecasts` (stündlich + täglich). Optional eine zweite
@@ -366,8 +366,10 @@ action:
 
         {%- set today = now().strftime('%Y-%m-%d') -%}
         {%- set tomorrow = (now() + timedelta(days=1)).strftime('%Y-%m-%d') -%}
+        {%- set day_after = (now() + timedelta(days=2)).strftime('%Y-%m-%d') -%}
         {%- set today_score = best_block(g.days.get(today, [])) | float -%}
         {%- set tomorrow_score = best_block(g.days.get(tomorrow, [])) | float -%}
+        {%- set day_after_score = best_block(g.days.get(day_after, [])) | float -%}
         {%- set nowts = as_timestamp(now()) -%}
         {%- set dl_left = g.days.get(today, []) | selectattr('is_day') | selectattr('ts', 'gt', nowts) | list | length -%}
 
@@ -483,6 +485,7 @@ action:
             'reasons': r.reasons,
             'today': today_score,
             'tomorrow': tomorrow_score,
+            'day_after': day_after_score,
             'daylight_left_h': dl_left,
             'window_start_hour': tw.start,
             'window_end_hour': tw.end,
@@ -507,6 +510,7 @@ sensor:
       reasons: "{{ result.reasons }}"
       outdoor_score: "{{ result.today }}"
       outdoor_score_tomorrow: "{{ result.tomorrow }}"
+      outdoor_score_day_after: "{{ result.day_after }}"
       daylight_left_h: "{{ result.daylight_left_h }}"
       best_window_start_hour: "{{ result.window_start_hour }}"
       best_window_end_hour: "{{ result.window_end_hour }}"
