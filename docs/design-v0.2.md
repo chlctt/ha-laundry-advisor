@@ -1,128 +1,111 @@
 # v0.2 – Design
 
-Status: Entwurf, in Umsetzung auf Branch `v0.2`. Review vor Merge.
+Status: implemented and merged.
 
-## Ziele
+## Goals
 
-1. **Mehrere Trockenräume** statt einem festen Keller.
-2. **Ranking**: Blueprint bewertet „draußen" + jeden Raum, empfiehlt den **einen besten
-   Ort namentlich**. Card zeigt die Rangliste.
-3. **Zweisprachig** (de/en): `language`-Input im Blueprint (für Benachrichtigungen),
-   Card übersetzt zusätzlich über `hass.language`.
-4. Neue Optionen: **Wäschetrockner-Entität**, **pro Raum Ventilator + Entfeuchter**.
+1. **Multiple drying rooms** instead of one fixed cellar.
+2. **Ranking**: the blueprint scores "outside" + every room and recommends the
+   **single best place by name**. The card shows the ranking.
+3. **Bilingual** (en/de): `language` input in the blueprint (for notifications),
+   the card additionally localises via `hass.language`.
+4. New options: **tumble-dryer entity**, **per-room fan + dehumidifier**.
 
-## Breaking Changes ggü. v0.1
+## Breaking changes vs. v0.1
 
-- Inputs `cellar_temp` / `cellar_humidity` / `cellar_wall_temp` **entfallen** →
-  ersetzt durch 5 Raum-Slots.
-- Attribut `cellar` (Objekt) **entfällt** → ersetzt durch `rooms` (Liste).
-- Neue States (s. u.). `outdoor_score*`, `forecast_days`, `best_window_*` bleiben.
-- `configuration.yaml`-`use_blueprint` muss mitgezogen werden (Migrationshinweis im
-  README).
+- Inputs `cellar_temp` / `cellar_humidity` / `cellar_wall_temp` **removed** →
+  replaced by 5 room slots.
+- Attribute `cellar` (object) **removed** → replaced by `rooms` (list).
+- New states (below). `outdoor_score*`, `forecast_days`, `best_window_*` stay.
+- The `configuration.yaml` `use_blueprint` block must be migrated (note in README).
 
 ## Inputs
 
-### Sektion „Datenquellen"
-| Input | Pflicht | Default |
+### Section "Data sources"
+| Input | Required | Default |
 |---|---|---|
 | `weather_entity` | ✅ | – |
 | `precip_prob_entity` | – | – |
-| `outdoor_temp` / `outdoor_humidity` | – | aus Wetter-Entität |
+| `outdoor_temp` / `outdoor_humidity` | – | from the weather entity |
 | `already_washed_boolean` | – | – |
 
-### Sektion „Sprache & Ausgabe"
+### Section "Language & output"
 | Input | Default |
 |---|---|
-| `language` (select `de`/`en`) | `de` |
+| `language` (select `en`/`de`) | `en` |
 | `dryer_entity` (optional) | – |
 
-`dryer_entity` gesetzt → State `dryer_recommended` möglich. Nicht gesetzt → statt
-Trockner wird der **am wenigsten schlechte Raum** empfohlen (`best_effort`).
+`dryer_entity` set → state `dryer_recommended` possible. Not set → the least-bad
+room is recommended instead (`best_effort`).
 
-### Sektionen „Raum 1"…„Raum 5" (Raum 2–5 collapsed)
-| Input | Pflicht für aktiven Raum |
+### Sections "Room 1"…"Room 5" (rooms 2–5 collapsed)
+| Input | Required for an active room |
 |---|---|
-| `room_N_name` (text) | ✅ (leer = Slot ungenutzt) |
+| `room_N_name` (text) | ✅ (empty = slot unused) |
 | `room_N_temp` (sensor/temperature) | ✅ |
 | `room_N_humidity` (sensor/humidity) | ✅ |
 | `room_N_fan` (entity, optional) | – |
 | `room_N_dehumidifier` (entity, optional) | – |
 
-Ein Raum zählt nur, wenn `name` + `temp` + `humidity` gesetzt sind.
+A room counts only when `name` + `temp` + `humidity` are all set.
 
-### Sektion „Feineinstellung" (collapsed)
+### Section "Fine-tuning" (collapsed)
 `block_hours`, `day_start_hour`, `day_end_hour`, `score_hang`, `score_marginal`,
 `wait_delta`, `weight_wind/humidity/sun/temperature`,
 `room_rh_max` (65), `room_temp_min` (15), `vent_dewpoint_margin` (5),
-`indoor_score_bias` (Abschlag Innenräume ggü. draußen, Default 15 – „draußen ist
-präferiert").
+`indoor_score_bias` (penalty for indoor rooms in the ranking, default 15 –
+"outside is preferred").
 
-## Raum-Bewertung (je Raum, 0–100)
+## Room score (per room, 0–100)
 
-Aus Live-Sensoren:
+From live sensors:
 
 ```
-td_room      = Taupunkt(T_room, rh_room)
-ah_room      = abs. Feuchte
+td_room      = dew_point(T_room, rh_room)
+ah_room      = absolute humidity
 vent_useful  = td_outdoor <= td_room - vent_dewpoint_margin
-vpd_room     = E_s(T_room) * (1 - rh_room/100)          # Trocken-Treiber
+vpd_room     = E_s(T_room) * (1 - rh_room/100)          # drying driver
 mold_risk    = rh_room > 80
 suitable     = rh_room < room_rh_max AND T_room >= room_temp_min AND not mold_risk
 
 room_score:
-  start = ramp(vpd_room, 2, 12) * 100          # 0 bei 2 hPa, 100 bei 12 hPa
-  + 10  wenn Entfeuchter vorhanden
-  + 8   wenn vent_useful (Lüften bringt was)
-  + 5   wenn Ventilator vorhanden
-  − 25  wenn rh_room >= room_rh_max
-  − 100 (→ ~0) wenn mold_risk
-  geklemmt 0..100
+  start = ramp(vpd_room, 2, 12) * 100          # 0 at 2 hPa, 100 at 12 hPa
+  + 10  if a dehumidifier is configured
+  + 8   if vent_useful (airing helps)
+  + 5   if a fan is configured
+  − 25  if rh_room >= room_rh_max
+  ~2    if mold_risk
+  clamped 0..100
 ```
 
-## Ranking & Empfehlung
+## Ranking & recommendation
 
-Optionsliste: `outside` (Score = `today_outdoor_score`) + je aktiver Raum
-(`room_score`). Innenräume bekommen `− indoor_score_bias` fürs Ranking (nicht für
-die Anzeige), damit „draußen" bei Gleichstand gewinnt.
+Option list: `outside` (score = `today_outdoor_score`) + one per active room
+(`room_score`). Indoor rooms get `− indoor_score_bias` for the ranking (not for
+the display) so "outside" wins on a tie.
 
-Sortierung absteigend. Dann:
+Sorted descending. Then the state machine in
+[`docs/logic.md`](logic.md#recommendation-wait-logic).
 
-```
-mold über ALLE aktiven Räume            → mold_risk (Warnung)
-outside_score >= score_hang, Tageslicht >= 4h   → hang_outside_now
-outside_score >= score_hang, Tageslicht < 4h    → hang_outside_later
-outside_score >= 55, Tageslicht >= 3h           → outside_marginal
-tomorrow >= score_hang und (tomorrow − today) >= wait_delta:
-    schon gewaschen                     → wait_for_tomorrow
-    nicht gewaschen, kein Raum suitable  → defer_wash
-bester Raum ist suitable:
-    vent_useful                         → room_ventilate   (recommended_room = Name)
-    sonst, Entfeuchter vorhanden        → room_dehumidify
-    sonst                               → room_ventilate   (mit Hinweis „stoßlüften")
-kein Raum suitable:
-    dryer_entity gesetzt                → dryer_recommended
-    sonst                               → best_effort       (bester Raum + Warnung)
-```
-
-## States (Enum)
+## States (enum)
 
 `hang_outside_now`, `hang_outside_later`, `outside_marginal`,
 `wait_for_tomorrow`, `defer_wash`,
 `room_ventilate`, `room_dehumidify`,
 `dryer_recommended`, `best_effort`, `mold_risk`, `unknown`
 
-## Attribute des Sensors
+## Sensor attributes
 
 ```yaml
-state: <einer der States>
+state: <one of the states>
 attributes:
-  language: de
-  headline: "<lokalisiert>"
-  reasons: ["<lokalisiert>", ...]
-  reason_codes:                       # für die Card-i18n
-    - {code: outdoor_rain, ...}
-  recommended_room: "Waschkeller"     # oder null (draußen/Trockner)
-  recommended_fan: fan.waschkeller    # Entität des empfohlenen Raums, oder null
+  language: en
+  headline: "<localised>"
+  reasons: ["<localised>", ...]
+  reason_codes:                       # for the card's i18n
+    - {code: room_best, n: "Basement", s: 27}
+  recommended_room: "Basement"        # or null (outside / dryer)
+  recommended_fan: fan.basement       # entity of the recommended room, or null
   recommended_dehumidifier: null
   outdoor_score: 42
   outdoor_score_tomorrow: 68
@@ -131,8 +114,8 @@ attributes:
   best_window_start_hour: 11
   best_window_end_hour: 16
   daylight_left_h: 5
-  rooms:                              # nach Score sortiert
-    - name: "Waschkeller"
+  rooms:                              # sorted by score
+    - name: "Basement"
       score: 34
       status: too_humid               # ok | too_humid | too_cold | mold_risk
       temperature: 20.9
@@ -143,21 +126,30 @@ attributes:
       has_fan: true
       has_dehumidifier: false
       suitable: false
+      mold_risk: false
       recommended: false
 ```
 
 ## i18n
 
-Blueprint: interne Tabelle `T[language]` mit `headlines` + `reason`-Vorlagen.
-`language`-Input steuert `headline`/`reasons`. `reason_codes` bleibt sprachneutral.
+Blueprint: an internal table `T[language]` with `headlines` + `reason` templates.
+The `language` input drives `headline`/`reasons`. `reason_codes` stay
+language-neutral.
 
-Card: `src/localize/{de,en}.json`, Auswahl über `hass.locale.language` bzw.
-`hass.language`, Fallback `en`. Übersetzt States, Status-Chips, `reason_codes`.
+Card: `src/localize/{en,de}.json`, chosen via `hass.locale.language` /
+`hass.language`, fallback `en`. Translates states, status chips, `reason_codes`.
 
 ## Card v0.2
 
-- 3 Score-Ringe bleiben (Heute/Morgen/Übermorgen).
-- Neue **Raum-Liste**: pro Raum eine Zeile mit Name, Score, Status-Chip,
-  Lüften-/Entfeuchter-Hinweis; der empfohlene Raum ist hervorgehoben.
-- `cellar`-Zeile entfällt.
-- Config: `show_rooms` statt `show_cellar`.
+- 3 score rings stay (today / tomorrow / day after).
+- New **room list**: one row per room with name, score, status chip,
+  airing/fan/dehumidifier hints; the recommended room is highlighted.
+- `cellar` row removed.
+- Config: `show_rooms` instead of `show_cellar`.
+
+## Known rough edges (→ v0.2.1)
+
+- When a room is `suitable` but airing does not help and there is no
+  dehumidifier, the state is still `room_ventilate` and the headline says "air it
+  out", while a reason says "airing does nothing" – slightly contradictory.
+  Should become a neutral "hang it there, warm & dry enough".

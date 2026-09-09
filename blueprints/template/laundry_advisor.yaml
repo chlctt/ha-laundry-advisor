@@ -1,60 +1,59 @@
 blueprint:
-  name: Laundry Advisor / Wäschewetter (v0.2)
+  name: Laundry Advisor
   description: >
-    Empfiehlt den **besten Ort**, um Wäsche zu trocknen – draußen an der Leine,
-    in einem von bis zu fünf Innenräumen, im Wäschetrockner – oder rät, mit dem
-    Waschen auf morgen zu warten.
+    Recommends the **best place to dry laundry** – outside on the line, in one of
+    up to five indoor rooms, in the tumble dryer – or tells you to wait until
+    tomorrow to wash.
 
 
-    Erzeugt **einen** Sensor `sensor.<name>`: State = Empfehlung, alle weiteren
-    Werte als Attribute (Outdoor-Score heute/morgen/übermorgen, Tagesvorschau,
-    bestes Zeitfenster, `rooms` = nach Trockeneignung sortierte Raum-Liste,
-    `recommended_room`, `reason_codes` für die Card).
+    Creates **one** sensor `sensor.<name>`: state = recommendation, everything
+    else as attributes (outdoor score today/tomorrow/day-after, day preview, best
+    time window, `rooms` = list of rooms sorted by drying suitability,
+    `recommended_room`, `reason_codes` for the card).
 
 
-    Zweisprachig über den `language`-Input (de/en) – wirkt auf `headline` und
-    `reasons` (für Benachrichtigungen). Die passende Lovelace-Card übersetzt
-    zusätzlich selbst.
+    Bilingual via the `language` input (en/de) – affects `headline` and `reasons`
+    (for notifications). The matching Lovelace card also localises on its own.
 
 
-    Score: Wind + Sättigungsdefizit (Feuchte/Taupunkt) dominieren, Sonne und
-    Temperatur unterstützen; Regen ist ein hartes K.-o. Räume werden über ihr
-    Sättigungsdefizit bewertet, mit Bonus für Entfeuchter / sinnvolles Lüften
-    (5-Kelvin-Taupunktregel) und Malus über der rF-Grenze; Schimmel-Guard bei
-    Raumfeuchte > 80 %.
+    Score: wind + vapour-pressure deficit (humidity/dew point) dominate, sun and
+    temperature support; rain is a hard no. Rooms are scored by their
+    vapour-pressure deficit, with a bonus for a dehumidifier / when airing helps
+    (5-Kelvin dew-point rule) and a penalty above the RH limit; a mould guard
+    trips above 80 % room humidity.
 
 
-    Doku & Quellen: https://github.com/chlctt/ha-laundry-advisor
+    Docs & sources: https://github.com/chlctt/ha-laundry-advisor
   domain: template
-  source_url: https://github.com/chlctt/ha-laundry-advisor/blob/v0.2/blueprints/template/laundry_advisor.yaml
+  source_url: https://github.com/chlctt/ha-laundry-advisor/blob/main/blueprints/template/laundry_advisor.yaml
   homeassistant:
     min_version: 2024.11.0
   input:
     sources:
-      name: Datenquellen
+      name: Data sources
       icon: mdi:weather-partly-cloudy
       input:
         weather_entity:
-          name: Wetter-Entität (primär)
-          description: Liefert die stündliche und tägliche Vorhersage.
+          name: Weather entity (primary)
+          description: Provides the hourly and daily forecast.
           selector:
             entity:
               filter:
                 - domain: weather
         precip_prob_entity:
-          name: Zweit-Wetter nur für Regenwahrscheinlichkeit (optional)
+          name: Second weather entity, precipitation probability only (optional)
           description: >
-            Stundenweise gematcht. Leer lassen, wenn die Primärquelle
-            `precipitation_probability` selbst liefert (der DWD tut das im
-            Stundenmodus nicht).
+            Matched hour by hour. Leave empty if the primary source provides
+            `precipitation_probability` itself (Germany's DWD does not, in hourly
+            mode).
           default:
           selector:
             entity:
               filter:
                 - domain: weather
         outdoor_temp:
-          name: Außen-Temperatursensor (optional)
-          description: Fallback ist die Temperatur aus der Wetter-Entität.
+          name: Outdoor temperature sensor (optional)
+          description: Falls back to the temperature from the weather entity.
           default:
           selector:
             entity:
@@ -62,8 +61,8 @@ blueprint:
                 - domain: sensor
                   device_class: temperature
         outdoor_humidity:
-          name: Außen-Feuchtesensor (optional)
-          description: Fallback ist die Luftfeuchte aus der Wetter-Entität.
+          name: Outdoor humidity sensor (optional)
+          description: Falls back to the humidity from the weather entity.
           default:
           selector:
             entity:
@@ -71,10 +70,10 @@ blueprint:
                 - domain: sensor
                   device_class: humidity
         already_washed_boolean:
-          name: "Helfer: Wäsche ist bereits gewaschen (optional)"
+          name: "Helper: laundry is already washed (optional)"
           description: >
-            input_boolean. Steuert `wait_for_tomorrow` (schon gewaschen → auf den
-            Ständer) vs. `defer_wash` (noch nicht → Waschen verschieben).
+            input_boolean. Switches `wait_for_tomorrow` (already washed → onto a
+            rack) vs. `defer_wash` (not yet → postpone washing).
           default:
           selector:
             entity:
@@ -82,54 +81,55 @@ blueprint:
                 - domain: input_boolean
 
     output:
-      name: Sprache & Ausgabe
+      name: Language & output
       icon: mdi:translate
       input:
         language:
-          name: Sprache der Texte
-          description: Wirkt auf `headline` und `reasons`. Die Card übersetzt zusätzlich selbst.
-          default: de
+          name: Text language
+          description: Affects `headline` and `reasons`. The card also localises on its own.
+          default: en
           selector:
             select:
               options:
-                - label: Deutsch
-                  value: de
                 - label: English
                   value: en
+                - label: Deutsch
+                  value: de
         dryer_entity:
-          name: Wäschetrockner (optional)
+          name: Tumble dryer (optional)
           description: >
-            Wenn gesetzt, ist „Trockner" eine mögliche Empfehlung. Ohne wird
-            stattdessen der am wenigsten schlechte Raum empfohlen.
+            Any entity representing the dryer (smart plug, power sensor, door
+            sensor). Used only as a presence flag: if set, "dryer" is a possible
+            recommendation; if not, the least-bad room is recommended instead.
           default:
           selector:
             entity: {}
 
     room_1:
-      name: Raum 1 (Trockenraum)
+      name: Room 1 (drying room)
       icon: mdi:home-floor-1
       input:
         room_1_name:
           name: Name
-          description: Frei wählbar, erscheint in der Empfehlung (z. B. „Waschkeller").
+          description: Free text, shown in the recommendation (e.g. "Basement").
           selector:
             text: {}
         room_1_temp:
-          name: Temperatursensor
+          name: Temperature sensor
           selector:
             entity:
               filter:
                 - domain: sensor
                   device_class: temperature
         room_1_humidity:
-          name: Feuchtesensor
+          name: Humidity sensor
           selector:
             entity:
               filter:
                 - domain: sensor
                   device_class: humidity
         room_1_fan:
-          name: Ventilator (optional)
+          name: Fan (optional)
           default:
           selector:
             entity:
@@ -137,7 +137,7 @@ blueprint:
                 - domain: fan
                 - domain: switch
         room_1_dehumidifier:
-          name: Entfeuchter (optional)
+          name: Dehumidifier (optional)
           default:
           selector:
             entity:
@@ -147,7 +147,7 @@ blueprint:
                 - domain: fan
 
     room_2:
-      name: Raum 2 (optional)
+      name: Room 2 (optional)
       icon: mdi:home-floor-2
       collapsed: true
       input:
@@ -157,7 +157,7 @@ blueprint:
           selector:
             text: {}
         room_2_temp:
-          name: Temperatursensor
+          name: Temperature sensor
           default:
           selector:
             entity:
@@ -165,7 +165,7 @@ blueprint:
                 - domain: sensor
                   device_class: temperature
         room_2_humidity:
-          name: Feuchtesensor
+          name: Humidity sensor
           default:
           selector:
             entity:
@@ -173,7 +173,7 @@ blueprint:
                 - domain: sensor
                   device_class: humidity
         room_2_fan:
-          name: Ventilator (optional)
+          name: Fan (optional)
           default:
           selector:
             entity:
@@ -181,7 +181,7 @@ blueprint:
                 - domain: fan
                 - domain: switch
         room_2_dehumidifier:
-          name: Entfeuchter (optional)
+          name: Dehumidifier (optional)
           default:
           selector:
             entity:
@@ -191,7 +191,7 @@ blueprint:
                 - domain: fan
 
     room_3:
-      name: Raum 3 (optional)
+      name: Room 3 (optional)
       icon: mdi:home-floor-3
       collapsed: true
       input:
@@ -201,7 +201,7 @@ blueprint:
           selector:
             text: {}
         room_3_temp:
-          name: Temperatursensor
+          name: Temperature sensor
           default:
           selector:
             entity:
@@ -209,7 +209,7 @@ blueprint:
                 - domain: sensor
                   device_class: temperature
         room_3_humidity:
-          name: Feuchtesensor
+          name: Humidity sensor
           default:
           selector:
             entity:
@@ -217,7 +217,7 @@ blueprint:
                 - domain: sensor
                   device_class: humidity
         room_3_fan:
-          name: Ventilator (optional)
+          name: Fan (optional)
           default:
           selector:
             entity:
@@ -225,7 +225,7 @@ blueprint:
                 - domain: fan
                 - domain: switch
         room_3_dehumidifier:
-          name: Entfeuchter (optional)
+          name: Dehumidifier (optional)
           default:
           selector:
             entity:
@@ -235,7 +235,7 @@ blueprint:
                 - domain: fan
 
     room_4:
-      name: Raum 4 (optional)
+      name: Room 4 (optional)
       icon: mdi:home-floor-a
       collapsed: true
       input:
@@ -245,7 +245,7 @@ blueprint:
           selector:
             text: {}
         room_4_temp:
-          name: Temperatursensor
+          name: Temperature sensor
           default:
           selector:
             entity:
@@ -253,7 +253,7 @@ blueprint:
                 - domain: sensor
                   device_class: temperature
         room_4_humidity:
-          name: Feuchtesensor
+          name: Humidity sensor
           default:
           selector:
             entity:
@@ -261,7 +261,7 @@ blueprint:
                 - domain: sensor
                   device_class: humidity
         room_4_fan:
-          name: Ventilator (optional)
+          name: Fan (optional)
           default:
           selector:
             entity:
@@ -269,7 +269,7 @@ blueprint:
                 - domain: fan
                 - domain: switch
         room_4_dehumidifier:
-          name: Entfeuchter (optional)
+          name: Dehumidifier (optional)
           default:
           selector:
             entity:
@@ -279,7 +279,7 @@ blueprint:
                 - domain: fan
 
     room_5:
-      name: Raum 5 (optional)
+      name: Room 5 (optional)
       icon: mdi:home-floor-b
       collapsed: true
       input:
@@ -289,7 +289,7 @@ blueprint:
           selector:
             text: {}
         room_5_temp:
-          name: Temperatursensor
+          name: Temperature sensor
           default:
           selector:
             entity:
@@ -297,7 +297,7 @@ blueprint:
                 - domain: sensor
                   device_class: temperature
         room_5_humidity:
-          name: Feuchtesensor
+          name: Humidity sensor
           default:
           selector:
             entity:
@@ -305,7 +305,7 @@ blueprint:
                 - domain: sensor
                   device_class: humidity
         room_5_fan:
-          name: Ventilator (optional)
+          name: Fan (optional)
           default:
           selector:
             entity:
@@ -313,7 +313,7 @@ blueprint:
                 - domain: fan
                 - domain: switch
         room_5_dehumidifier:
-          name: Entfeuchter (optional)
+          name: Dehumidifier (optional)
           default:
           selector:
             entity:
@@ -323,80 +323,80 @@ blueprint:
                 - domain: fan
 
     tuning:
-      name: Feineinstellung
+      name: Fine-tuning
       icon: mdi:cog
       collapsed: true
       input:
         block_hours:
-          name: Länge des Bewertungsfensters (h)
+          name: Length of the assessment window (h)
           default: 5
           selector:
             number: {min: 2, max: 10, unit_of_measurement: h}
         day_start_hour:
-          name: Tageslicht-Beginn (Stunde, lokal)
+          name: Daylight start (hour, local)
           default: 8
           selector:
             number: {min: 3, max: 12}
         day_end_hour:
-          name: Tageslicht-Ende (Stunde, lokal)
+          name: Daylight end (hour, local)
           default: 20
           selector:
             number: {min: 14, max: 23}
         score_hang:
-          name: Score-Schwelle „raushängen“
+          name: Score threshold "hang outside"
           default: 70
           selector:
             number: {min: 40, max: 100}
         score_marginal:
-          name: Score-Schwelle „grenzwertig“
+          name: Score threshold "marginal"
           default: 45
           selector:
             number: {min: 20, max: 80}
         wait_delta:
-          name: Nötiger Score-Vorsprung von morgen für „warten“
+          name: Score lead tomorrow needs over today to "wait"
           default: 20
           selector:
             number: {min: 5, max: 50}
         indoor_score_bias:
-          name: Abschlag für Innenräume im Ranking
+          name: Indoor penalty in the ranking
           description: >
-            „Draußen" gewinnt bei ähnlichem Score. Nur fürs Ranking, nicht für die
-            angezeigten Raum-Scores.
+            "Outside" wins at a similar score. Ranking only, not applied to the
+            displayed room scores.
           default: 15
           selector:
             number: {min: 0, max: 40}
         weight_wind:
-          name: Gewicht Wind
+          name: Weight – wind
           default: 35
           selector:
             number: {min: 0, max: 100}
         weight_humidity:
-          name: Gewicht Luftfeuchte / VPD
+          name: Weight – humidity / VPD
           default: 30
           selector:
             number: {min: 0, max: 100}
         weight_sun:
-          name: Gewicht Sonne
+          name: Weight – sun
           default: 20
           selector:
             number: {min: 0, max: 100}
         weight_temperature:
-          name: Gewicht Temperatur
+          name: Weight – temperature
           default: 15
           selector:
             number: {min: 0, max: 100}
         room_rh_max:
-          name: Maximale Raum-rF für „nutzbar“ (%)
+          name: Max room RH for "usable" (%)
           default: 65
           selector:
             number: {min: 45, max: 80, unit_of_measurement: "%"}
         room_temp_min:
-          name: Minimale Raum-Temperatur für „nutzbar“ (°C)
+          name: Min room temperature for "usable" (°C)
           default: 15
           selector:
             number: {min: 8, max: 22, unit_of_measurement: "°C"}
         vent_dewpoint_margin:
-          name: Taupunkt-Marge fürs Lüften (K)
+          name: Dew-point margin for airing (K)
           default: 5
           selector:
             number: {min: 1, max: 9, unit_of_measurement: K}
@@ -494,7 +494,7 @@ action:
         {%- set prob_hours = (fc_prob.get(pe, {}).get('forecast', []) if pe else []) -%}
         {%- set lang = cfg_language if cfg_language in ['de', 'en'] else 'de' -%}
 
-        {# ================= Makros ================= #}
+        {# ================= macros ================= #}
         {%- macro dew_point(t, rh) -%}
           {%- set t = t | float(0) -%}{%- set rh = [rh | float(0), 0.5] | max -%}
           {%- set gm = (rh / 100) | log + (17.625 * t) / (243.04 + t) -%}
@@ -529,13 +529,13 @@ action:
           {%- endif -%}
         {%- endmacro -%}
 
-        {# ============ Regenwahrscheinlichkeit indexieren ============ #}
+        {# ============ index precipitation probability by hour ============ #}
         {%- set ns = namespace(prob={}) -%}
         {%- for p in prob_hours -%}
           {%- set ns.prob = dict(ns.prob, **{(as_timestamp(p.datetime) | int) | string: p.get('precipitation_probability')}) -%}
         {%- endfor -%}
 
-        {# ============ Stunden bewerten, nach Datum gruppieren ============ #}
+        {# ============ score hours, group by date ============ #}
         {%- set g = namespace(days={}) -%}
         {%- for h in hours -%}
           {%- set ts = as_timestamp(h.datetime) -%}
@@ -575,7 +575,7 @@ action:
         {%- set nowts = as_timestamp(now()) -%}
         {%- set dl_left = g.days.get(today, []) | selectattr('is_day') | selectattr('ts', 'gt', nowts) | list | length -%}
 
-        {# bestes Fenster heute #}
+        {# best window today #}
         {%- set tw = namespace(start=none, end=none, best=0) -%}
         {%- set tde = g.days.get(today, []) | selectattr('is_day') | list | sort(attribute='hour') -%}
         {%- if tde | length > 0 -%}
@@ -593,12 +593,12 @@ action:
           {%- set fdays.l = fdays.l + [{'date': d, 'score': best_block(g.days[d]) | float}] -%}
         {%- endfor -%}
 
-        {# ================= Außenluft (live) für Taupunktvergleich ================= #}
+        {# ================= outdoor air (live) for the dew-point comparison ================= #}
         {%- set o_t = (states(in_outdoor_temp) | float(none)) if in_outdoor_temp else state_attr(we, 'temperature') | float(none) -%}
         {%- set o_rh = (states(in_outdoor_humidity) | float(none)) if in_outdoor_humidity else state_attr(we, 'humidity') | float(none) -%}
         {%- set td_o = dew_point(o_t, o_rh) | float if (o_t is not none and o_rh is not none) else none -%}
 
-        {# ================= Räume bewerten ================= #}
+        {# ================= score rooms ================= #}
         {%- set rns = namespace(l=[]) -%}
         {%- for rc in rooms_cfg -%}
           {%- set rname = (rc.name | default('')) | string | trim -%}
@@ -698,7 +698,7 @@ action:
         } -%}
         {%- set L = T[lang] -%}
 
-        {# ================= State-Machine ================= #}
+        {# ================= state machine ================= #}
         {%- set st = namespace(state='unknown', room=none, codes=[]) -%}
         {%- if all_mold -%}
           {%- set st.state = 'mold_risk' -%}
@@ -737,14 +737,14 @@ action:
           {%- set st.state = 'dryer_recommended' if has_dryer else 'unknown' -%}
         {%- endif -%}
 
-        {# empfohlenen Raum markieren #}
+        {# mark the recommended room #}
         {%- set rooms_out = namespace(l=[]) -%}
         {%- for r in rooms_sorted -%}
           {%- set rr = dict(r, **{'recommended': (r.name == st.room)}) -%}
           {%- set rooms_out.l = rooms_out.l + [rr] -%}
         {%- endfor -%}
 
-        {# headline + reasons lokalisiert #}
+        {# localised headline + reasons #}
         {%- set hl = L.h.get(st.state, '') -%}
         {%- set hl = hl % st.room if ('%s' in hl and st.room) else (hl | replace(' %s', '') | replace('%s', '')) -%}
         {%- set rs = namespace(l=[]) -%}

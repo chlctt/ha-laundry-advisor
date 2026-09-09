@@ -1,11 +1,11 @@
-# Beispiel-Automation: Benachrichtigung + optionale Aktorsteuerung im empfohlenen Raum.
-# Kopieren nach automations.yaml und notify-Ziel anpassen.
+# Example automation: notification + optional actuator control in the recommended room.
+# Copy into automations.yaml and adjust the notify target.
 
 - id: laundry_advisor_notify
-  alias: "Wäsche: Empfehlung geändert"
+  alias: "Laundry: recommendation changed"
   description: >
-    Meldet Zustandswechsel des Laundry-Advisor-Sensors. Schaltet optional
-    Ventilator und Entfeuchter des empfohlenen Raums (aus den Attributen
+    Notifies on a state change of the laundry advisor sensor. Optionally switches
+    the fan and dehumidifier of the recommended room (from the attributes
     recommended_fan / recommended_dehumidifier).
   mode: single
   trigger:
@@ -30,14 +30,14 @@
         window_end: "{{ state_attr(adv, 'best_window_end_hour') }}"
     - action: notify.family_phones
       data:
-        title: "Wäschewetter"
+        title: "Laundry Advisor"
         message: >
           {{ state_attr(adv, 'headline') }}
           {% if window_start is not none and state.startswith('hang_outside') %}
-          Bestes Fenster: {{ window_start }}–{{ window_end }} Uhr.
+          Best window: {{ window_start }}–{{ window_end }}.
           {% endif %}
 
-    # --- Aktoren im empfohlenen Raum ---
+    # --- actuators in the recommended room ---
     - choose:
         - conditions:
             - condition: template
@@ -55,7 +55,7 @@
                 - action: homeassistant.turn_on
                   target:
                     entity_id: "{{ deh }}"
-        # draußen empfohlen -> Innenraum-Aktoren wieder aus
+        # outside recommended -> turn the indoor actuators back off
         - conditions:
             - condition: template
               value_template: "{{ state.startswith('hang_outside') }}"

@@ -1,91 +1,98 @@
-# Logik & Herleitung
+# Logic & derivation
 
-## Outdoor-Score (0–100)
+## Outdoor score (0–100)
 
-Pro Vorhersagestunde berechnet, dann Mittelwert des **besten zusammenhängenden
-Fensters** (Default 5 h) innerhalb des Tageslichts (lokale Stunde
-`day_start_hour`…`day_end_hour`). Gibt es weniger Tageslichtstunden als das
-Fenster, greift ein Faktor 0,6.
+Computed per forecast hour, then the mean of the **best contiguous window**
+(default 5 h) within daylight (local hour `day_start_hour`…`day_end_hour`). If
+there are fewer daylight hours than the window, a factor of 0.6 applies.
 
-### Harte Gates (Stunde → 0)
-- Niederschlag > 0,1 mm/h
+### Hard gates (hour → 0)
+- Precipitation > 0.1 mm/h
 
-### Weiche Multiplikatoren
-- Regenwahrscheinlichkeit > 60 % → × 0,4; > 40 % → × 0,7
-- Windböen > 45 km/h → Score-Deckel 40
+### Soft multipliers
+- Precipitation probability > 60 % → × 0.4; > 40 % → × 0.7
+- Wind gusts > 45 km/h → score capped at 40
 
-### Teil-Scores (0–1, gewichtet)
+### Sub-scores (0–1, weighted)
 
-| Faktor | Gewicht | Kurve |
+| Factor | Weight | Curve |
 |---|---:|---|
-| Wind | 35 | 0 bei ≤ 3 km/h, 1 im Band 12–25 km/h, fällt auf 0 bei 40 km/h |
-| Luftfeuchte / VPD | 30 | schlechterer Wert aus rF-Rampe (1 bei ≤ 55 %, 0 bei 90 %) und Taupunktspread (1 bei ≥ 6 K, 0 bei ≤ 2 K) |
-| Sonne | 20 | Einstrahlung `sun_irradiance` (0 bei 20 W/m², 1 bei 450) – sonst `1 − Bewölkung/100` |
-| Temperatur | 15 | 0 bei ≤ 5 °C, 1 bei ≥ 20 °C |
+| Wind | 35 | 0 at ≤ 3 km/h, 1 in the 12–25 km/h band, falls to 0 at 40 km/h |
+| Humidity / VPD | 30 | the worse of the RH ramp (1 at ≤ 55 %, 0 at 90 %) and the dew-point spread (1 at ≥ 6 K, 0 at ≤ 2 K) |
+| Sun | 20 | irradiance `sun_irradiance` (0 at 20 W/m², 1 at 450) – otherwise `1 − cloud/100` |
+| Temperature | 15 | 0 at ≤ 5 °C, 1 at ≥ 20 °C |
 
-**Begründung** (aus Recherche + Verifikation): Trocknen nasser Textilien ist ein
-Grenzschicht-Stoffübergang; Luftbewegung und das Sättigungsdefizit (Temperatur
-*und* Feuchte gemeinsam) treiben es. Wind dominiert v. a. im Schatten/bei
-bedecktem Himmel – in praller Sonne kann Strahlung bei dünnem/dunklem Stoff
-ähnlich stark wirken, deshalb ist der Sonnen-Term nicht vernachlässigbar. Ein
-Penman-Ansatz nähert die erste (konstante) Trocknungsphase; gegen Ende gilt er
-nicht mehr. Regen macht Trocknen unmöglich → hartes Gate.
+**Rationale** (from research + verification): drying wet fabric is a
+boundary-layer mass-transfer process; air movement and the vapour-pressure
+deficit (temperature *and* humidity together) drive it. Wind dominates especially
+in shade / under overcast skies – in full sun, radiation can matter as much for
+thin/dark fabric, so the sun term is not negligible. A Penman approach
+approximates the initial (constant-rate) drying phase; near the end it no longer
+holds. Rain makes drying impossible → hard gate.
 
-## Bänder
+## Bands
 
-- ≥ 70: raushängen
-- 45–69: geht, beobachten
-- < 45: Keller
+- ≥ 70: hang outside
+- 45–69: works, keep an eye on it
+- < 45: indoors
 
-## Keller-Bewertung
+## Room assessment
 
-Aus Live-Sensoren (nicht aus der Vorhersage):
+From live sensors (not the forecast), per room:
 
-- Taupunkt & absolute Feuchte via Magnus (Alduchov–Eskridge, `b = 17.625`,
-  `c = 243.04`; Taupunktfehler ~0,1 °C).
-- **Lüften sinnvoll**, wenn `Außentaupunkt ≤ Keller-Taupunkt − vent_margin`
-  (Default 5 K; kommerzielle Taupunktsteuerungen nutzen 5 K EIN / 1 K AUS).
-- **Keller nutzbar**: rF < `cellar_rh_max` (65 %) und T ≥ `cellar_temp_min`
-  (15 °C) und kein Schimmel-Guard.
-- **Oberflächenfeuchte** (falls Wandsensor): `rF_wand = rF_raum ·
-  E_s(T_raum) / E_s(T_wand)`, gedeckelt 100 %. Ohne Wandsensor = Raumfeuchte.
-- **Schimmel-Guard**: `rF_wand > 80 %` oder `T_wand ≤ Raumtaupunkt`.
+- Dew point & absolute humidity via Magnus (Alduchov–Eskridge, `b = 17.625`,
+  `c = 243.04`; dew-point error ~0.1 °C).
+- **Airing worthwhile** when `outdoor dew point ≤ room dew point − vent_margin`
+  (default 5 K; commercial dew-point controllers use 5 K on / 1 K off).
+- **Room usable**: RH < `room_rh_max` (65 %) and T ≥ `room_temp_min` (15 °C) and
+  no mould guard.
+- **Mould guard**: `room RH > 80 %`.
+- **Room score** (0–100): `ramp(vpd, 2, 12) × 100` + 10 if a dehumidifier is
+  configured + 8 if airing helps + 5 if a fan is configured − 25 if RH ≥
+  `room_rh_max`; ~2 at mould risk; clamped.
 
-Zielwerte-Hintergrund: Umweltbundesamt empfiehlt Raum-rF < 60 % (Keller);
-Schimmel an einer Oberfläche braucht anhaltend > ~80 % rF / aw ≈ 0,8
-(Sedlbauer/Fraunhofer-IBP-Isoplethenmodell). Eine Waschladung gibt ~2 l Wasser
-an die Raumluft ab.
+Background values: the German Environment Agency recommends indoor RH < 60 % (for
+cellars); mould on a surface needs sustained > ~80 % RH / aw ≈ 0.8
+(Sedlbauer / Fraunhofer IBP isopleth model). One wash load releases ~2 L of water
+into the room air.
 
-## „Warten"-Entscheidung
+## Ranking
 
-Wäsche darf nicht in der Maschine bleiben (Muffelgeruch durch *Moraxella
-osloensis*; die oft genannten „4–5 h" sind eine Faustregel ohne Peer-Review).
-„Warten" heißt daher immer: auf den Wäscheständer.
+Options: `outside` (score = `today_outdoor_score`) + one per active room
+(`room_score`). Indoor rooms get `− indoor_score_bias` for the ranking (not for
+the displayed score) so "outside" wins on a tie. Sorted descending.
+
+## Recommendation ("wait" logic)
+
+Laundry must not stay in the machine (musty smell from *Moraxella osloensis*; the
+often-quoted "4–5 h" is a rule of thumb without peer review). "Wait" therefore
+always means: onto a drying rack.
 
 ```
-heute >= score_hang und Tageslicht >= 4 h        → hang_outside_now
-heute >= score_hang und Tageslicht < 4 h         → hang_outside_later
-heute >= 55 und Tageslicht >= 3 h                 → outside_marginal
-morgen >= score_hang und (morgen − heute) >= wait_delta:
-    schon gewaschen                              → wait_for_tomorrow
-    nicht gewaschen und Keller ungünstig         → defer_wash
-    sonst                                        → cellar_ok / cellar_dehumidifier
-Keller nutzbar und Außenluft trockener           → cellar_ok
-Keller nutzbar, Außenluft nicht trockener        → cellar_dehumidifier
-sonst                                            → dryer_recommended
-Schimmel-Guard aktiv                             → mold_risk  (schlägt alles)
+mould across ALL active rooms                   → mold_risk (warning, overrides)
+outside >= score_hang, daylight >= 4 h           → hang_outside_now
+outside >= score_hang, daylight < 4 h            → hang_outside_later
+outside >= 55, daylight >= 3 h                   → outside_marginal
+tomorrow >= score_hang and (tomorrow − today) >= wait_delta and no room usable:
+    already washed                              → wait_for_tomorrow
+    not washed                                  → defer_wash
+best room is usable:
+    airing helps or no dehumidifier             → room_ventilate  (recommended_room)
+    else                                        → room_dehumidify
+no room usable:
+    dryer_entity set                            → dryer_recommended
+    else                                        → best_effort      (least-bad room + warning)
 ```
 
-## Quellen
+## Sources
 
-Vollständige Quellenliste im [Konzeptdokument](https://github.com/chlctt/ha-laundry-advisor)
-bzw. `homelab/docs/projects/waeschewetter-konzept.md`. Kern:
+Full list in the concept document (German). Core:
 
-- Umweltbundesamt – Lüften / Schimmel
-- taupunkt-lueftung.de, keller-doktor.de – 5-Kelvin-Regel
-- Fraunhofer IBP / Sedlbauer – Isoplethen, aw-Wert
-- Alduchov & Eskridge 1996 – verbesserte Magnus-Approximation
-- DWD / wetterdienst.de – Wäschetrocknen aus wissenschaftlicher Sicht
-- hackitu.de/drynow – Penman auf DWD-MOSMIX
-- Kubota et al. 2012 (AEM) – *Moraxella osloensis* / 4-Methyl-3-Hexensäure
-- HA-Doku – Template-Blueprints (2024.11), `weather.get_forecasts`
+- German Environment Agency (Umweltbundesamt) – ventilation / mould
+- taupunkt-lueftung.de, keller-doktor.de – 5-Kelvin rule
+- Fraunhofer IBP / Sedlbauer – isopleths, water activity
+- Alduchov & Eskridge 1996 – improved Magnus approximation
+- DWD / wetterdienst.de – drying laundry from a scientific perspective
+- hackitu.de/drynow – Penman over DWD MOSMIX
+- Kubota et al. 2012 (AEM) – *Moraxella osloensis* / 4-methyl-3-hexenoic acid
+- HA docs – template blueprints (2024.11), `weather.get_forecasts`
