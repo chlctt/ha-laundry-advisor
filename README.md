@@ -40,6 +40,7 @@ else as **attributes**.
 | `outside_marginal` | Outside works, keep an eye on it |
 | `wait_for_tomorrow` | Onto a **rack** today, outside tomorrow (laundry is already washed) |
 | `defer_wash` | Postpone **washing** until tomorrow |
+| `room_ok` | Best room – warm & dry enough, just hang it there |
 | `room_ventilate` | Best room (`recommended_room`) – air it out + fan |
 | `room_dehumidify` | Best room – dehumidifier only (airing does nothing) |
 | `dryer_recommended` | Tumble dryer (only when `dryer_entity` is set) |
@@ -124,6 +125,11 @@ Requires Home Assistant **≥ 2024.11**.
 - **Each active room needs a temperature and a humidity sensor.** A room without
   a name or sensors is ignored. Room 1 is required.
 - **Outdoor sensors are optional** (fall back to the weather entity).
+- **Assumes an hourly forecast in mm/h.** `daylight_left_h` and `block_hours`
+  count forecast entries, and `precipitation > 0.1` is read as mm/h – with a
+  3-hourly provider both are off by ~3× ([#9](https://github.com/chlctt/ha-laundry-advisor/issues/9)).
+- Sensor changes in rooms 2–5 are picked up on the next 10-minute tick, not
+  immediately ([#10](https://github.com/chlctt/ha-laundry-advisor/issues/10)).
 
 ---
 
