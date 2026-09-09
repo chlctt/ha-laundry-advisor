@@ -1,0 +1,107 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Laundry Advisor",
+        "description": "Add rooms after setup from the integration's page.",
+        "data": {
+          "weather_entity": "Weather entity (primary)",
+          "precip_prob_entity": "Second weather entity for precipitation probability",
+          "outdoor_temp": "Outdoor temperature sensor",
+          "outdoor_humidity": "Outdoor humidity sensor",
+          "dryer_entity": "Tumble dryer entity",
+          "already_washed_boolean": "Helper: laundry is already washed"
+        },
+        "data_description": {
+          "weather_entity": "Provides the hourly and daily forecast.",
+          "precip_prob_entity": "Leave empty if the primary source provides precipitation_probability itself.",
+          "dryer_entity": "Any entity representing the dryer. Presence flag only.",
+          "already_washed_boolean": "input_boolean. Switches wait_for_tomorrow vs. defer_wash."
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This weather entity is already used by a Laundry Advisor entry."
+    }
+  },
+  "config_subentries": {
+    "room": {
+      "initiate_flow": {
+        "user": "Add drying room",
+        "reconfigure": "Edit drying room"
+      },
+      "step": {
+        "user": {
+          "title": "Drying room",
+          "data": {
+            "name": "Name",
+            "temp_entity": "Temperature sensor",
+            "humidity_entity": "Humidity sensor",
+            "wall_temp_entity": "Coldest wall/surface temperature sensor",
+            "fan_entity": "Fan",
+            "dehumidifier_entity": "Dehumidifier"
+          },
+          "data_description": {
+            "wall_temp_entity": "Optional. Without it the mould guard uses the room humidity.",
+            "fan_entity": "Optional.",
+            "dehumidifier_entity": "Optional."
+          }
+        },
+        "reconfigure": {
+          "title": "Drying room",
+          "data": {
+            "name": "Name",
+            "temp_entity": "Temperature sensor",
+            "humidity_entity": "Humidity sensor",
+            "wall_temp_entity": "Coldest wall/surface temperature sensor",
+            "fan_entity": "Fan",
+            "dehumidifier_entity": "Dehumidifier"
+          }
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Fine-tuning",
+        "data": {
+          "update_interval_minutes": "Update interval (minutes)",
+          "block_hours": "Length of the assessment window (h)",
+          "day_start_hour": "Daylight start (hour, local)",
+          "day_end_hour": "Daylight end (hour, local)",
+          "score_hang": "Score threshold \"hang outside\"",
+          "score_marginal": "Score threshold \"marginal outside\"",
+          "wait_delta": "Score lead tomorrow needs over today to \"wait\"",
+          "weight_wind": "Weight - wind",
+          "weight_humidity": "Weight - humidity / VPD",
+          "weight_sun": "Weight - sun",
+          "weight_temperature": "Weight - temperature",
+          "room_rh_max": "Max room RH for \"usable\" (%)",
+          "room_temp_min": "Min room temperature for \"usable\" (°C)",
+          "vent_dewpoint_margin": "Dew-point margin for airing (K)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "recommendation": {
+        "state": {
+          "hang_outside_now": "Hang it outside now",
+          "hang_outside_later": "Hang it outside later",
+          "outside_marginal": "Outside, marginal",
+          "wait_for_tomorrow": "Wait for tomorrow",
+          "defer_wash": "Defer the wash",
+          "room_ok": "Best room",
+          "room_ventilate": "Best room, ventilate",
+          "room_dehumidify": "Best room, dehumidifier",
+          "dryer_recommended": "Tumble dryer",
+          "best_effort": "Best effort",
+          "mold_risk": "Mould risk",
+          "unknown": "Unknown"
+        }
+      }
+    }
+  }
+}

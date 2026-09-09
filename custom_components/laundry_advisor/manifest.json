@@ -1,0 +1,12 @@
+{
+  "domain": "laundry_advisor",
+  "name": "Laundry Advisor",
+  "codeowners": ["@chlctt"],
+  "config_flow": true,
+  "dependencies": ["weather"],
+  "documentation": "https://github.com/chlctt/ha-laundry-advisor",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/chlctt/ha-laundry-advisor/issues",
+  "requirements": [],
+  "version": "0.3.0"
+}

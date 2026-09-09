@@ -40,6 +40,11 @@ holds. Rain makes drying impossible → hard gate.
 `score_hang` needs ≥ 4 daylight hours left for `hang_outside_now`, ≥ 1 for
 `hang_outside_later`; `outside_marginal` needs ≥ 3.
 
+`daylight_left_h` is real hours: the blueprint counted forecast *entries*, the
+integration multiplies by the derived forecast interval, so it is correct for
+sub-hourly providers too (blueprint #9). For an hourly forecast the two are
+identical.
+
 **No unified ranking.** "Outside" enters via these absolute thresholds; the rooms
 are only ranked among each other. Whether to fold everything into one ranking is
 [#8](https://github.com/chlctt/ha-laundry-advisor/issues/8).
@@ -57,7 +62,11 @@ From live sensors (not the forecast), per room:
   (default 5 K; commercial dew-point controllers use 5 K on / 1 K off).
 - **Room usable**: RH < `room_rh_max` (65 %) and T ≥ `room_temp_min` (15 °C) and
   no mould guard.
-- **Mould guard**: `room RH > 80 %`.
+- **Mould guard**: surface RH > 80 %, or the wall is at/below the room dew point.
+  Without a wall-temperature sensor the surface RH equals the room RH, so the
+  guard is simply `room RH > 80 %` (as in the v0.2 blueprint). With a wall
+  sensor the surface RH is `RH · E_s(T_room) / E_s(T_wall)` – a cold wall trips
+  the guard at a much lower room humidity (integration only).
 - **Room score** (0–100): `ramp(vpd, 2, 12) × 100` + 10 if a dehumidifier is
   configured + 8 if airing helps + 5 if a fan is configured − 25 if RH ≥
   `room_rh_max`; ~2 at mould risk; clamped.

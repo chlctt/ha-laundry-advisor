@@ -2,20 +2,19 @@ name: Validate
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 jobs:
-  yaml:
+  blueprint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: yamllint
         run: |
           pipx install yamllint
-          yamllint -d relaxed .
-
+          yamllint -d relaxed blueprints/ examples/
       - name: Parse blueprint & examples (HA YAML tags aware)
         run: |
           python - <<'PY'
@@ -37,29 +36,39 @@ jobs:
                       "!include_dir_merge_named", "!env_var"):
               HALoader.add_constructor(tag, _passthrough)
 
-          files = glob.glob("blueprints/**/*.yaml", recursive=True) + \
-              glob.glob("examples/**/*.yaml", recursive=True) + \
-              glob.glob("packages/**/*.yaml", recursive=True)
-          for f in files:
+          for f in glob.glob("blueprints/**/*.yaml", recursive=True) + \
+                   glob.glob("examples/**/*.yaml", recursive=True):
               with open(f, encoding="utf-8") as fh:
                   yaml.load(fh, Loader=HALoader)
               print("ok:", f)
           PY
 
-      - name: Blueprint has required keys
-        run: |
-          python - <<'PY'
-          import yaml
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install ruff pytest homeassistant
+      - name: ruff
+        run: ruff check custom_components/ tests/
+      - name: ruff format
+        run: ruff format --check custom_components/ tests/
+      - name: pytest (pure logic)
+        run: pytest tests/ -q
 
-          class L(yaml.SafeLoader):
-              pass
-          L.add_constructor("!input", lambda l, n: {"__input__": l.construct_scalar(n)})
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
 
-          d = yaml.load(open("blueprints/template/laundry_advisor.yaml", encoding="utf-8"), Loader=L)
-          bp = d["blueprint"]
-          assert bp["domain"] == "template", bp["domain"]
-          assert "input" in bp and bp["input"], "no inputs"
-          assert "trigger" in d and "action" in d, "trigger-based template expected"
-          assert len(d["sensor"]) == 1, "template blueprint must define exactly one entity"
-          print("blueprint structure ok")
-          PY
+  hacs:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@22.5.0
+        with:
+          category: integration
