@@ -1,67 +1,74 @@
-# Beispiel-Automation: Benachrichtigung + optionale Ventilatorsteuerung
-# Kopieren nach automations.yaml und Entitäten/Ziele anpassen.
+# Beispiel-Automation: Benachrichtigung + optionale Aktorsteuerung im empfohlenen Raum.
+# Kopieren nach automations.yaml und notify-Ziel anpassen.
 
 - id: laundry_advisor_notify
-  alias: "Wäsche: Empfehlung geändert – Benachrichtigung"
+  alias: "Wäsche: Empfehlung geändert"
   description: >
-    Meldet Zustandswechsel des Laundry-Advisor-Sensors und schaltet optional
-    Keller-Ventilatoren, wenn Keller-Trocknen empfohlen wird.
+    Meldet Zustandswechsel des Laundry-Advisor-Sensors. Schaltet optional
+    Ventilator und Entfeuchter des empfohlenen Raums (aus den Attributen
+    recommended_fan / recommended_dehumidifier).
   mode: single
   trigger:
     - platform: state
       entity_id: sensor.laundry_advisor
-      to: ~
   condition:
-    # nur „echte" Wechsel, keine Neustart-/unknown-Flapper
     - condition: template
       value_template: >
         {{ trigger.from_state.state not in ['unknown', 'unavailable', none]
            and trigger.to_state.state not in ['unknown', 'unavailable'] }}
-    # Ruhezeiten
     - condition: time
       after: "07:00:00"
       before: "21:30:00"
   action:
     - variables:
+        adv: sensor.laundry_advisor
         state: "{{ trigger.to_state.state }}"
-        headline: "{{ state_attr('sensor.laundry_advisor', 'headline') }}"
-        score: "{{ state_attr('sensor.laundry_advisor', 'outdoor_score') }}"
-        window_start: "{{ state_attr('sensor.laundry_advisor', 'best_window_start_hour') }}"
-        window_end: "{{ state_attr('sensor.laundry_advisor', 'best_window_end_hour') }}"
+        room: "{{ state_attr(adv, 'recommended_room') }}"
+        fan: "{{ state_attr(adv, 'recommended_fan') }}"
+        deh: "{{ state_attr(adv, 'recommended_dehumidifier') }}"
+        window_start: "{{ state_attr(adv, 'best_window_start_hour') }}"
+        window_end: "{{ state_attr(adv, 'best_window_end_hour') }}"
     - action: notify.family_phones
       data:
         title: "Wäschewetter"
         message: >
-          {{ headline }}
-          {% if window_start is not none %}
-          Bestes Fenster heute: {{ window_start }}–{{ window_end }} Uhr (Score {{ score }}).
+          {{ state_attr(adv, 'headline') }}
+          {% if window_start is not none and state.startswith('hang_outside') %}
+          Bestes Fenster: {{ window_start }}–{{ window_end }} Uhr.
           {% endif %}
-    # --- optionale Ventilatorsteuerung im Keller ---
+
+    # --- Aktoren im empfohlenen Raum ---
     - choose:
         - conditions:
             - condition: template
-              value_template: "{{ state in ['cellar_ok', 'cellar_dehumidifier'] }}"
+              value_template: "{{ state in ['room_ventilate', 'room_dehumidify', 'best_effort'] }}"
           sequence:
-            # Raumventilator immer an
-            - action: fan.turn_on
-              target:
-                entity_id: fan.waschkeller_ventilator
-            # Abluft nur, wenn Lüften laut Advisor sinnvoll ist
             - if:
-                - condition: template
-                  value_template: >
-                    {{ state_attr('sensor.laundry_advisor', 'cellar').ventilation_useful | default(false) }}
+                - "{{ fan not in [none, 'None', ''] }}"
               then:
-                - action: switch.turn_on
+                - action: homeassistant.turn_on
                   target:
-                    entity_id: switch.waschkeller_abluft
+                    entity_id: "{{ fan }}"
+            - if:
+                - "{{ state == 'room_dehumidify' and deh not in [none, 'None', ''] }}"
+              then:
+                - action: homeassistant.turn_on
+                  target:
+                    entity_id: "{{ deh }}"
+        # draußen empfohlen -> Innenraum-Aktoren wieder aus
         - conditions:
             - condition: template
-              value_template: "{{ state in ['hang_outside_now', 'hang_outside_later'] }}"
+              value_template: "{{ state.startswith('hang_outside') }}"
           sequence:
-            - action: fan.turn_off
-              target:
-                entity_id: fan.waschkeller_ventilator
-            - action: switch.turn_off
-              target:
-                entity_id: switch.waschkeller_abluft
+            - if:
+                - "{{ fan not in [none, 'None', ''] }}"
+              then:
+                - action: homeassistant.turn_off
+                  target:
+                    entity_id: "{{ fan }}"
+            - if:
+                - "{{ deh not in [none, 'None', ''] }}"
+              then:
+                - action: homeassistant.turn_off
+                  target:
+                    entity_id: "{{ deh }}"
