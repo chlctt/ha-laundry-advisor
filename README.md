@@ -97,9 +97,12 @@ Ein Sensor (`sensor.laundry_advisor`): **State** = Empfehlung, alles Weitere als
 
    Dann *Entwicklerwerkzeuge → YAML → Template-Entitäten neu laden*.
 
-> ⚠️ **Blueprint-Änderungen brauchen einen HA-Neustart** – „Template-Entitäten
-> neu laden" liest die Blueprint-Datei nicht neu ein, nur die `use_blueprint`-
-> Werte. Neue Attribute erscheinen erst nach Neustart.
+> ⚠️ **Nach einer Blueprint-Änderung: HA neu starten _und danach_
+> `template.reload`.** „Template-Entitäten neu laden" allein liest die
+> Blueprint-Datei nicht neu ein; ein Neustart tut es, aber die
+> trigger-basierte Entity stellt danach oft ihren alten State wieder her und
+> rechnet erst beim nächsten Trigger neu – ein `template.reload` unmittelbar
+> nach dem Neustart erzwingt die Neuberechnung.
 
 ### Migration v0.1 → v0.2
 
