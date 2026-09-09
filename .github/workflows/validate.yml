@@ -81,11 +81,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: home-assistant/actions/hassfest@master
 
-  hacs:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hacs/action@22.5.0
-        with:
-          category: integration
+  # The HACS default-store check (hacs/action, category: integration) is not run
+  # here – it requires brand assets + a listing PR to hacs/default that only
+  # matter for default-store inclusion, not custom-repo installs. Add it back
+  # when submitting to the default store.
