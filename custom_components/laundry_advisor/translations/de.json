@@ -26,6 +26,7 @@
   },
   "config_subentries": {
     "room": {
+      "entry_type": "Trockenraum",
       "initiate_flow": {
         "user": "Trockenraum hinzufügen",
         "reconfigure": "Trockenraum bearbeiten"

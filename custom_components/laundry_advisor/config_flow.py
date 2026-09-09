@@ -75,32 +75,41 @@ USER_SCHEMA = vol.Schema(
 )
 
 
+def _marker(cls: type, key: str, value: Any) -> Any:
+    """A vol.Required/Optional marker that carries a suggested value, not a default.
+
+    ``default=None`` on an EntitySelector key is fed straight into the selector on
+    an empty submit and fails validation, so pre-fill via ``suggested_value``.
+    """
+    if value in (None, ""):
+        return cls(key)
+    return cls(key, description={"suggested_value": value})
+
+
 def _room_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     d = defaults or {}
     return vol.Schema(
         {
-            vol.Required(
-                CONF_ROOM_NAME, default=d.get(CONF_ROOM_NAME, "")
-            ): selector.TextSelector(),
-            vol.Required(CONF_ROOM_TEMP, default=d.get(CONF_ROOM_TEMP)): _TEMP,
-            vol.Required(CONF_ROOM_HUMIDITY, default=d.get(CONF_ROOM_HUMIDITY)): _HUM,
-            vol.Optional(CONF_ROOM_WALL_TEMP, default=d.get(CONF_ROOM_WALL_TEMP)): _TEMP,
-            vol.Optional(CONF_ROOM_FAN, default=d.get(CONF_ROOM_FAN)): _ACTUATOR,
-            vol.Optional(CONF_ROOM_DEHUMIDIFIER, default=d.get(CONF_ROOM_DEHUMIDIFIER)): _ACTUATOR,
+            _marker(vol.Required, CONF_ROOM_NAME, d.get(CONF_ROOM_NAME)): selector.TextSelector(),
+            _marker(vol.Required, CONF_ROOM_TEMP, d.get(CONF_ROOM_TEMP)): _TEMP,
+            _marker(vol.Required, CONF_ROOM_HUMIDITY, d.get(CONF_ROOM_HUMIDITY)): _HUM,
+            _marker(vol.Optional, CONF_ROOM_WALL_TEMP, d.get(CONF_ROOM_WALL_TEMP)): _TEMP,
+            _marker(vol.Optional, CONF_ROOM_FAN, d.get(CONF_ROOM_FAN)): _ACTUATOR,
+            _marker(vol.Optional, CONF_ROOM_DEHUMIDIFIER, d.get(CONF_ROOM_DEHUMIDIFIER)): _ACTUATOR,
         }
     )
 
 
 def _num(minimum: float, maximum: float, step: float = 1, unit: str | None = None):
-    return selector.NumberSelector(
-        selector.NumberSelectorConfig(
-            min=minimum,
-            max=maximum,
-            step=step,
-            unit_of_measurement=unit,
-            mode=selector.NumberSelectorMode.BOX,
-        )
-    )
+    config: dict[str, Any] = {
+        "min": minimum,
+        "max": maximum,
+        "step": step,
+        "mode": selector.NumberSelectorMode.BOX,
+    }
+    if unit is not None:
+        config["unit_of_measurement"] = unit
+    return selector.NumberSelector(selector.NumberSelectorConfig(config))
 
 
 OPTIONS_SCHEMA = vol.Schema(

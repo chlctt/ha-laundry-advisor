@@ -26,6 +26,7 @@
   },
   "config_subentries": {
     "room": {
+      "entry_type": "Drying room",
       "initiate_flow": {
         "user": "Add drying room",
         "reconfigure": "Edit drying room"
