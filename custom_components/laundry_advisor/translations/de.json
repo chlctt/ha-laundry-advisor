@@ -39,11 +39,13 @@
             "temp_entity": "Temperatursensor",
             "humidity_entity": "Feuchtesensor",
             "wall_temp_entity": "Sensor für die kälteste Wand-/Oberflächentemperatur",
+            "window_entity": "Fenster-/Tür-Kontaktsensor",
             "fan_entity": "Ventilator",
             "dehumidifier_entity": "Entfeuchter"
           },
           "data_description": {
             "wall_temp_entity": "Optional. Ohne diesen Wert nutzt der Schimmel-Guard die Raumfeuchte.",
+            "window_entity": "Optionaler binary_sensor. Angeben, wenn der Raum gelüftet werden kann – für einen Raum ohne Fenster/Tür leer lassen, dann wird Lüften dort nicht vorgeschlagen.",
             "fan_entity": "Optional.",
             "dehumidifier_entity": "Optional."
           }

@@ -187,10 +187,33 @@ def test_room_score_too_cold():
 
 def test_room_score_ventilation_useful_bonus():
     # room 20/70 -> dew ~14.4; outdoor dew 8 is > 5 K below -> airing helps
-    dry_out = d.room_score(d.RoomState("R", 20, 70), 8.0, d.Config())
-    no_out = d.room_score(d.RoomState("R", 20, 70), None, d.Config())
+    win = "binary_sensor.r_window"
+    dry_out = d.room_score(d.RoomState("R", 20, 70, window_entity=win), 8.0, d.Config())
+    no_out = d.room_score(d.RoomState("R", 20, 70, window_entity=win), None, d.Config())
     assert dry_out.ventilation_useful and not no_out.ventilation_useful
     assert dry_out.score > no_out.score
+
+
+def test_room_score_no_window_is_not_ventilatable():
+    # outdoor air much drier, but the room has no window -> cannot air it
+    with_win = d.room_score(
+        d.RoomState("R", 20, 70, window_entity="binary_sensor.w"), 8.0, d.Config()
+    )
+    without = d.room_score(d.RoomState("R", 20, 70), 8.0, d.Config())
+    assert with_win.ventilation_useful and not without.ventilation_useful
+    assert without.has_window is False
+    assert with_win.score > without.score  # airing bonus only with a window
+
+
+def test_room_score_window_open_passthrough():
+    rs = d.room_score(
+        d.RoomState("R", 22, 55, window_entity="binary_sensor.w", window_open=True),
+        None,
+        d.Config(),
+    )
+    assert rs.has_window is True
+    assert rs.window_open is True
+    assert rs.as_dict()["window_open"] is True
 
 
 def test_room_score_wall_temp_raises_surface_rh():
@@ -500,7 +523,9 @@ def test_evaluate_room_ventilate_end_to_end():
         hourly=_rainy_hours(),
         daily=[],
         prob=[],
-        rooms=[d.RoomState("Attic", 20, 62)],
+        rooms=[
+            d.RoomState("Attic", 20, 62, window_entity="binary_sensor.attic", window_open=False)
+        ],
         outdoor=d.Outdoor(2, 70),
         cfg=d.Config(),
         now=NOW,
@@ -509,6 +534,72 @@ def test_evaluate_room_ventilate_end_to_end():
     )
     assert r.state == "room_ventilate"
     assert {"code": "vent_useful"} in r.reason_codes
+    assert {"code": "window_closed", "n": "Attic"} in r.reason_codes
+
+
+def test_evaluate_room_without_window_is_room_ok_not_ventilate():
+    # identical to the case above but no window -> falls through to room_ok
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("Attic", 20, 62)],
+        outdoor=d.Outdoor(2, 70),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert r.state == "room_ok"
+
+
+def test_evaluate_room_ventilate_window_open_reason():
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("Attic", 20, 62, window_entity="binary_sensor.attic", window_open=True)],
+        outdoor=d.Outdoor(2, 70),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert r.state == "room_ventilate"
+    assert {"code": "window_open", "n": "Attic"} in r.reason_codes
+
+
+def test_evaluate_room_ventilate_unknown_contact_no_window_reason():
+    # window_open None (contact unknown/unavailable) -> still ventilate, no window_* code
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("Attic", 20, 62, window_entity="binary_sensor.attic", window_open=None)],
+        outdoor=d.Outdoor(2, 70),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert r.state == "room_ventilate"
+    assert not any(c["code"] in ("window_open", "window_closed") for c in r.reason_codes)
+
+
+def test_evaluate_windowless_room_still_reaches_dehumidify():
+    # humid, dehumidifier present, no window -> dehumidify (not blocked by the window gate)
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("Attic", 22, 60, dehumidifier_entity="switch.d")],
+        outdoor=d.Outdoor(2, 70),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert r.state == "room_dehumidify"
 
 
 def test_evaluate_final_unknown_no_rooms_no_dryer():

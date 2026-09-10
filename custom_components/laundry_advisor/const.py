@@ -18,6 +18,7 @@ CONF_ROOM_NAME = "name"
 CONF_ROOM_TEMP = "temp_entity"
 CONF_ROOM_HUMIDITY = "humidity_entity"
 CONF_ROOM_WALL_TEMP = "wall_temp_entity"
+CONF_ROOM_WINDOW = "window_entity"
 CONF_ROOM_FAN = "fan_entity"
 CONF_ROOM_DEHUMIDIFIER = "dehumidifier_entity"
 

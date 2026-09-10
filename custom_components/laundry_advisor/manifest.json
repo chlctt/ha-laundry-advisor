@@ -5,9 +5,9 @@
   "config_flow": true,
   "dependencies": ["weather"],
   "documentation": "https://github.com/chlctt/ha-laundry-advisor",
-  "integration_type": "helper",
+  "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/chlctt/ha-laundry-advisor/issues",
   "requirements": [],
-  "version": "0.3.1"
+  "version": "0.4.0"
 }

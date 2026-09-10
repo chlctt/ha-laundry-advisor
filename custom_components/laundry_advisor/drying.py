@@ -1,6 +1,6 @@
 """Pure drying-advice logic. No Home Assistant imports – fully unit-testable.
 
-Ported from the v0.2.1 template blueprint. See docs/logic.md for the derivation.
+See docs/logic.md for the derivation.
 """
 
 from __future__ import annotations
@@ -108,6 +108,10 @@ class RoomState:
     wall_temp: float | None = None
     fan_entity: str | None = None
     dehumidifier_entity: str | None = None
+    # A window/door contact means the room can be aired. Without one the room is
+    # treated as not ventilatable (no room_ventilate, no airing bonus).
+    window_entity: str | None = None
+    window_open: bool | None = None  # resolved contact state; None = unknown
 
 
 @dataclass(slots=True)
@@ -127,6 +131,8 @@ class RoomScore:
     abs_humidity: float | None
     vpd: float | None
     ventilation_useful: bool
+    has_window: bool
+    window_open: bool | None
     has_fan: bool
     has_dehumidifier: bool
     fan: str | None
@@ -147,6 +153,8 @@ class RoomScore:
             "abs_humidity": self.abs_humidity,
             "vpd": self.vpd,
             "ventilation_useful": self.ventilation_useful,
+            "has_window": self.has_window,
+            "window_open": self.window_open,
             "has_fan": self.has_fan,
             "has_dehumidifier": self.has_dehumidifier,
             "fan": self.fan,
@@ -184,7 +192,7 @@ def hour_score(h: HourFc, w: Weights, interval_h: float = 1.0) -> float:
     temp = h.temperature if h.temperature is not None else 10.0
     rh = h.humidity if h.humidity is not None else 80.0
     wind = h.wind_speed or 0.0
-    # a missing gust must not trigger the blow-off cap (matches the blueprint)
+    # a missing gust must not trigger the blow-off cap
     gust = h.wind_gust_speed if h.wind_gust_speed is not None else 0.0
     cloud = h.cloud_coverage if h.cloud_coverage is not None else 50.0
     pp = h.precipitation_probability
@@ -256,7 +264,9 @@ def room_score(r: RoomState, outdoor_dew: float | None, cfg: Config) -> RoomScor
     td = dew_point(r.temp, r.humidity)
     ah = abs_humidity(r.temp, r.humidity)
     v = vpd(r.temp, r.humidity)
-    vent = outdoor_dew is not None and outdoor_dew <= td - cfg.vent_margin
+    has_window = r.window_entity is not None
+    # airing only helps if the room can be aired AND the outdoor air is drier
+    vent = has_window and outdoor_dew is not None and outdoor_dew <= td - cfg.vent_margin
     has_fan = r.fan_entity is not None
     has_deh = r.dehumidifier_entity is not None
 
@@ -293,6 +303,8 @@ def room_score(r: RoomState, outdoor_dew: float | None, cfg: Config) -> RoomScor
         abs_humidity=round(ah, 2),
         vpd=round(v, 1),
         ventilation_useful=vent,
+        has_window=has_window,
+        window_open=r.window_open,
         has_fan=has_fan,
         has_dehumidifier=has_deh,
         fan=r.fan_entity if has_fan else None,
@@ -408,6 +420,10 @@ def evaluate(
                 {"code": "room_best", "n": cand.name, "s": round(cand.score)},
                 {"code": "vent_useful"},
             ]
+            if cand.window_open is True:
+                codes.append({"code": "window_open", "n": cand.name})
+            elif cand.window_open is False:
+                codes.append({"code": "window_closed", "n": cand.name})
         elif cand.has_dehumidifier and (cand.humidity or 0) >= 55:
             st = "room_dehumidify"
             codes = [

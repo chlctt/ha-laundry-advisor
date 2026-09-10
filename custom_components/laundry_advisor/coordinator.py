@@ -28,6 +28,7 @@ from .const import (
     CONF_ROOM_TEMP,
     CONF_ROOM_TEMP_MIN,
     CONF_ROOM_WALL_TEMP,
+    CONF_ROOM_WINDOW,
     CONF_SCORE_HANG,
     CONF_SCORE_MARGINAL,
     CONF_UPDATE_INTERVAL,
@@ -94,7 +95,12 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
         for sub in entry.subentries.values():
             if sub.subentry_type != SUBENTRY_TYPE_ROOM:
                 continue
-            for key in (CONF_ROOM_TEMP, CONF_ROOM_HUMIDITY, CONF_ROOM_WALL_TEMP):
+            for key in (
+                CONF_ROOM_TEMP,
+                CONF_ROOM_HUMIDITY,
+                CONF_ROOM_WALL_TEMP,
+                CONF_ROOM_WINDOW,
+            ):
                 if v := sub.data.get(key):
                     watched.add(v)
 
@@ -141,6 +147,8 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
                 wall_temp=self._num(sub.data.get(CONF_ROOM_WALL_TEMP)),
                 fan_entity=sub.data.get(CONF_ROOM_FAN) or None,
                 dehumidifier_entity=sub.data.get(CONF_ROOM_DEHUMIDIFIER) or None,
+                window_entity=(we := sub.data.get(CONF_ROOM_WINDOW) or None),
+                window_open=self._is_on(we),
             )
             for sub in entry.subentries.values()
             if sub.subentry_type == SUBENTRY_TYPE_ROOM
@@ -221,6 +229,15 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
             return None
         st = self.hass.states.get(entity_id)
         return self._float(st.state) if st else None
+
+    def _is_on(self, entity_id: str | None) -> bool | None:
+        """True/False for a binary contact, None if unknown/unavailable/missing."""
+        if not entity_id:
+            return None
+        st = self.hass.states.get(entity_id)
+        if st is None or st.state in ("unknown", "unavailable"):
+            return None
+        return st.state == "on"
 
     @staticmethod
     def _float(value: object) -> float | None:

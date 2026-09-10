@@ -35,6 +35,7 @@ from .const import (
     CONF_ROOM_TEMP,
     CONF_ROOM_TEMP_MIN,
     CONF_ROOM_WALL_TEMP,
+    CONF_ROOM_WINDOW,
     CONF_SCORE_HANG,
     CONF_SCORE_MARGINAL,
     CONF_UPDATE_INTERVAL,
@@ -56,6 +57,9 @@ _WEATHER = selector.EntitySelector(selector.EntitySelectorConfig(domain="weather
 # would hide exactly the average sensors people use here.
 _TEMP = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
 _HUM = _TEMP
+# Any binary_sensor – a door/window group helper carries no registry device_class
+# either, so no device_class filter here for the same reason as the sensors above.
+_WINDOW = selector.EntitySelector(selector.EntitySelectorConfig(domain="binary_sensor"))
 _ANY = selector.EntitySelector(selector.EntitySelectorConfig())
 _BOOL = selector.EntitySelector(selector.EntitySelectorConfig(domain="input_boolean"))
 _ACTUATOR = selector.EntitySelector(
@@ -93,6 +97,7 @@ def _room_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
             _marker(vol.Required, CONF_ROOM_TEMP, d.get(CONF_ROOM_TEMP)): _TEMP,
             _marker(vol.Required, CONF_ROOM_HUMIDITY, d.get(CONF_ROOM_HUMIDITY)): _HUM,
             _marker(vol.Optional, CONF_ROOM_WALL_TEMP, d.get(CONF_ROOM_WALL_TEMP)): _TEMP,
+            _marker(vol.Optional, CONF_ROOM_WINDOW, d.get(CONF_ROOM_WINDOW)): _WINDOW,
             _marker(vol.Optional, CONF_ROOM_FAN, d.get(CONF_ROOM_FAN)): _ACTUATOR,
             _marker(vol.Optional, CONF_ROOM_DEHUMIDIFIER, d.get(CONF_ROOM_DEHUMIDIFIER)): _ACTUATOR,
         }

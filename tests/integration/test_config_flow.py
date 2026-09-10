@@ -11,6 +11,7 @@ from custom_components.laundry_advisor.const import (
     CONF_ROOM_HUMIDITY,
     CONF_ROOM_NAME,
     CONF_ROOM_TEMP,
+    CONF_ROOM_WINDOW,
     CONF_UPDATE_INTERVAL,
     CONF_WEATHER,
     DOMAIN,
@@ -92,6 +93,23 @@ async def test_room_subentry_create(hass: HomeAssistant) -> None:
     assert sub.data[CONF_ROOM_TEMP] == "sensor.cellar_temp"
     # _clean() drops empty optionals
     assert "fan_entity" not in sub.data
+
+
+async def test_room_subentry_keeps_window_entity(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, data=MAIN_DATA, title="Laundry Advisor")
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_TYPE_ROOM),
+        context={"source": config_entries.SOURCE_USER},
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {**_room_input(), CONF_ROOM_WINDOW: "binary_sensor.cellar_window"},
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    sub = next(iter(entry.subentries.values()))
+    assert sub.data[CONF_ROOM_WINDOW] == "binary_sensor.cellar_window"
 
 
 async def test_room_subentry_reconfigure(hass: HomeAssistant) -> None:

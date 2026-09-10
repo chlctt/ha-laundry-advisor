@@ -1,7 +1,7 @@
 [project]
 name = "ha-laundry-advisor"
-version = "0.3.0"
-description = "Home Assistant integration + template blueprint that recommends the best place to dry laundry"
+version = "0.4.0"
+description = "Home Assistant integration that recommends the best place to dry laundry"
 requires-python = ">=3.13"
 
 [tool.ruff]

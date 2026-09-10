@@ -4,6 +4,31 @@ All notable changes to this project. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning per
 [SemVer](https://semver.org/).
 
+## [0.4.0] – 2026-09-10
+
+### Changed / Breaking
+- `integration_type` is now `service` (was `helper`). The entry moves from the
+  *Helpers* tab to *Settings → Devices & Services → Integrations*, where the
+  **Add drying room** button actually renders – the Helpers-tab row only ever
+  opened the options dialog, which is why rooms could not be added in the UI.
+- The README now states the minimum Home Assistant version as **≥ 2026.9**, to
+  match the (unchanged) `hacs.json` floor. HACS will not offer the update on
+  older cores.
+- **Rooms need a window/door contact to be considered ventilatable.** New
+  optional per-room `window_entity` (`binary_sensor`): its presence marks the
+  room as airable and its state picks the wording ("open the window there" vs
+  "already open"). A room with no contact configured no longer gets
+  `room_ventilate` or the airing score bonus. Existing rooms have none set, so
+  add one (a `binary_sensor` group works) to keep the airing path.
+
+### Removed
+- The template blueprint (`blueprints/`, the `blueprint` CI job, the README
+  section, `docs/design-v0.2.md`). The integration is the only supported form.
+  The last blueprint release stays at git tag `v0.3.1`.
+
+### Added
+- `rooms[]` attribute gains `has_window` and `window_open`.
+
 ## [0.3.1] – 2026-09-10
 
 ### Fixed
@@ -18,6 +43,8 @@ All notable changes to this project. Format based on
 Custom integration (`custom_components/laundry_advisor/`): config flow, rooms as
 config subentries, coordinator, one sensor, en/de. The template blueprint stays
 as legacy v0.2.1. See `docs/design-v0.3-integration.md`.
+
+<!-- Everything below is the legacy template blueprint (removed in 0.4.0). -->
 
 ## [0.2.1] – 2026-09-09
 

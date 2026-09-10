@@ -40,10 +40,10 @@ holds. Rain makes drying impossible → hard gate.
 `score_hang` needs ≥ 4 daylight hours left for `hang_outside_now`, ≥ 1 for
 `hang_outside_later`; `outside_marginal` needs ≥ 3.
 
-`daylight_left_h` is real hours: the blueprint counted forecast *entries*, the
-integration multiplies by the derived forecast interval, so it is correct for
-sub-hourly providers too (blueprint #9). For an hourly forecast the two are
-identical.
+`daylight_left_h` is real hours: the count of remaining daylight forecast
+entries is multiplied by the forecast interval derived from two consecutive
+`datetime` values, so it is correct for sub-hourly and multi-hourly providers.
+For an hourly forecast the two are identical.
 
 **No unified ranking.** "Outside" enters via these absolute thresholds; the rooms
 are only ranked among each other. Whether to fold everything into one ranking is
@@ -58,15 +58,17 @@ From live sensors (not the forecast), per room:
 
 - Dew point & absolute humidity via Magnus (Alduchov–Eskridge, `b = 17.625`,
   `c = 243.04`; dew-point error ~0.1 °C).
-- **Airing worthwhile** when `outdoor dew point ≤ room dew point − vent_margin`
-  (default 5 K; commercial dew-point controllers use 5 K on / 1 K off).
+- **Airing worthwhile** when the room has a window/door contact configured *and*
+  `outdoor dew point ≤ room dew point − vent_margin` (default 5 K; commercial
+  dew-point controllers use 5 K on / 1 K off). A room with no contact configured
+  is treated as not ventilatable.
 - **Room usable**: RH < `room_rh_max` (65 %) and T ≥ `room_temp_min` (15 °C) and
   no mould guard.
 - **Mould guard**: surface RH > 80 %, or the wall is at/below the room dew point.
   Without a wall-temperature sensor the surface RH equals the room RH, so the
-  guard is simply `room RH > 80 %` (as in the v0.2 blueprint). With a wall
-  sensor the surface RH is `RH · E_s(T_room) / E_s(T_wall)` – a cold wall trips
-  the guard at a much lower room humidity (integration only).
+  guard is simply `room RH > 80 %`. With a wall sensor the surface RH is
+  `RH · E_s(T_room) / E_s(T_wall)` – a cold wall trips the guard at a much lower
+  room humidity.
 - **Room score** (0–100): `ramp(vpd, 2, 12) × 100` + 10 if a dehumidifier is
   configured + 8 if airing helps + 5 if a fan is configured − 25 if RH ≥
   `room_rh_max`; ~2 at mould risk; clamped.
@@ -111,4 +113,4 @@ Full list in the concept document (German). Core:
 - DWD / wetterdienst.de – drying laundry from a scientific perspective
 - hackitu.de/drynow – Penman over DWD MOSMIX
 - Kubota et al. 2012 (AEM) – *Moraxella osloensis* / 4-methyl-3-hexenoic acid
-- HA docs – template blueprints (2024.11), `weather.get_forecasts`
+- HA developer docs – config entries / subentries, `weather.get_forecasts`
