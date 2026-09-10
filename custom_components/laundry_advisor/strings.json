@@ -13,7 +13,25 @@
           "already_washed_boolean": "Helper: laundry is already washed"
         },
         "data_description": {
-          "weather_entity": "Provides the hourly and daily forecast.",
+          "weather_entity": "Provides the hourly forecast.",
+          "precip_prob_entity": "Leave empty if the primary source provides precipitation_probability itself.",
+          "dryer_entity": "Any entity representing the dryer. Presence flag only.",
+          "already_washed_boolean": "input_boolean. Switches wait_for_tomorrow vs. defer_wash."
+        }
+      },
+      "reconfigure": {
+        "title": "Laundry Advisor",
+        "description": "Change the weather entity or the optional entities. Rooms are kept.",
+        "data": {
+          "weather_entity": "Weather entity (primary)",
+          "precip_prob_entity": "Second weather entity for precipitation probability",
+          "outdoor_temp": "Outdoor temperature sensor",
+          "outdoor_humidity": "Outdoor humidity sensor",
+          "dryer_entity": "Tumble dryer entity",
+          "already_washed_boolean": "Helper: laundry is already washed"
+        },
+        "data_description": {
+          "weather_entity": "Provides the hourly forecast.",
           "precip_prob_entity": "Leave empty if the primary source provides precipitation_probability itself.",
           "dryer_entity": "Any entity representing the dryer. Presence flag only.",
           "already_washed_boolean": "input_boolean. Switches wait_for_tomorrow vs. defer_wash."
@@ -21,7 +39,8 @@
       }
     },
     "abort": {
-      "already_configured": "This weather entity is already used by a Laundry Advisor entry."
+      "already_configured": "This weather entity is already used by a Laundry Advisor entry.",
+      "reconfigure_successful": "Laundry Advisor was updated."
     }
   },
   "config_subentries": {
@@ -57,8 +76,15 @@
             "temp_entity": "Temperature sensor",
             "humidity_entity": "Humidity sensor",
             "wall_temp_entity": "Coldest wall/surface temperature sensor",
+            "window_entity": "Window / door contact sensor",
             "fan_entity": "Fan",
             "dehumidifier_entity": "Dehumidifier"
+          },
+          "data_description": {
+            "wall_temp_entity": "Optional. Without it the mould guard uses the room humidity.",
+            "window_entity": "Optional binary_sensor. Set it if the room can be aired – leave empty for a room with no window/door, and airing won't be suggested for it.",
+            "fan_entity": "Optional.",
+            "dehumidifier_entity": "Optional."
           }
         }
       }
@@ -81,6 +107,7 @@
           "weight_sun": "Weight - sun",
           "weight_temperature": "Weight - temperature",
           "room_rh_max": "Max room RH for \"usable\" (%)",
+          "room_dehumidify_rh": "Room RH from which a dehumidifier is recommended (%)",
           "room_temp_min": "Min room temperature for \"usable\" (°C)",
           "vent_dewpoint_margin": "Dew-point margin for airing (K)"
         }

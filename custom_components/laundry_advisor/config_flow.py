@@ -28,6 +28,7 @@ from .const import (
     CONF_OUTDOOR_TEMP,
     CONF_PRECIP_PROB,
     CONF_ROOM_DEHUMIDIFIER,
+    CONF_ROOM_DEHUMIDIFY_RH,
     CONF_ROOM_FAN,
     CONF_ROOM_HUMIDITY,
     CONF_ROOM_NAME,
@@ -130,6 +131,7 @@ OPTIONS_SCHEMA = vol.Schema(
         vol.Optional(CONF_W_SUN): _num(0, 100),
         vol.Optional(CONF_W_TEMPERATURE): _num(0, 100),
         vol.Optional(CONF_ROOM_RH_MAX): _num(45, 80, unit="%"),
+        vol.Optional(CONF_ROOM_DEHUMIDIFY_RH): _num(45, 80, unit="%"),
         vol.Optional(CONF_ROOM_TEMP_MIN): _num(8, 22, unit="°C"),
         vol.Optional(CONF_VENT_MARGIN): _num(1, 9, unit="K"),
     }
@@ -148,8 +150,26 @@ class LaundryAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             self._async_abort_entries_match({CONF_WEATHER: user_input[CONF_WEATHER]})
-            return self.async_create_entry(title="Laundry Advisor", data=user_input)
+            return self.async_create_entry(title="Laundry Advisor", data=_clean(user_input))
         return self.async_show_form(step_id="user", data_schema=USER_SCHEMA)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Edit the main entry (weather / optional entities) without losing rooms."""
+        entry = self._get_reconfigure_entry()
+        if user_input is not None:
+            weather = user_input[CONF_WEATHER]
+            if any(
+                other.entry_id != entry.entry_id and other.data.get(CONF_WEATHER) == weather
+                for other in self._async_current_entries()
+            ):
+                return self.async_abort(reason="already_configured")
+            return self.async_update_reload_and_abort(entry, data=_clean(user_input))
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(USER_SCHEMA, entry.data),
+        )
 
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry) -> SchemaOptionsFlowHandler:

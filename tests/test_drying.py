@@ -13,6 +13,7 @@ sys.path.insert(
 )
 
 import drying as d
+import l10n
 
 TZ = timezone(timedelta(hours=2))
 NOW = datetime(2026, 9, 9, 10, 0, tzinfo=TZ)
@@ -223,9 +224,9 @@ def test_room_score_wall_temp_raises_surface_rh():
 
 
 # -------------------------------------------------------------------- evaluate
-def _forecast(hourly_score_profile, hours=60, **hour_kw):
-    """Build a forecast where each hour gets attributes producing a target score
-    is hard, so instead we craft weather that yields known scores by band."""
+def _forecast(_unused=None, hours=60, **hour_kw):
+    """Build `hours` identical forecast entries – the weather kwargs are tuned per
+    test to land the outdoor score in a known band."""
     out = []
     for i in range(hours):
         out.append(d.HourFc(dt=NOW.replace(minute=0) + timedelta(hours=i), **hour_kw))
@@ -762,3 +763,105 @@ def test_room_score_cold_wall_flips_to_mould():
     cold = d.room_score(d.RoomState("R", 20, 60, wall_temp=12), None, d.Config())
     assert warm.status == "ok" and not warm.mold_risk
     assert cold.mold_risk and cold.status == "mold_risk" and cold.score <= 5
+
+
+def test_room_score_clamps_over_100_rh():
+    # a sensor stuck at 105 % must not yield a dew point above the temperature
+    rs = d.room_score(d.RoomState("R", 20, 105), None, d.Config())
+    assert rs.humidity == 100.0
+    assert rs.dewpoint <= 20.0 + 1e-6
+
+
+def test_evaluate_dehumidify_rh_threshold_is_configurable():
+    rooms = [d.RoomState("Attic", 22, 58, dehumidifier_entity="switch.d")]
+    common = dict(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        outdoor=d.Outdoor(15, 95),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    # default threshold 55 -> 58 % triggers the dehumidifier
+    assert d.evaluate(rooms=rooms, cfg=d.Config(), **common).state == "room_dehumidify"
+    # raise it to 60 -> 58 % no longer does
+    assert d.evaluate(rooms=rooms, cfg=d.Config(room_dehumidify_rh=60), **common).state == "room_ok"
+
+
+def test_evaluate_duplicate_room_names_flag_exactly_one():
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("Keller", 24, 50), d.RoomState("Keller", 20, 72)],
+        outdoor=d.Outdoor(15, 95),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert [x["recommended"] for x in r.rooms].count(True) == 1
+    # the flagged one is the better-scoring "Keller" (24/50)
+    rec = next(x for x in r.rooms if x["recommended"])
+    assert rec["temperature"] == 24.0
+
+
+def test_best_block_window_is_hours_not_entries():
+    # 3-hourly forecast, block_hours=6 -> 2 entries per window
+    hours = []
+    for i in range(6):
+        e = d.HourFc(dt=NOW.replace(hour=9) + timedelta(hours=3 * i))
+        e.score = 50.0 if i < 3 else 90.0
+        e.is_day = True
+        hours.append(e)
+    score, win = d.best_block(hours, block_hours=6, interval_h=3.0)
+    assert score == pytest.approx(90.0)  # the two 90-score entries, not a 5-entry mean
+    assert win == (18, 24)  # 18:00 + one 3 h step, capped at 24
+
+
+def test_best_block_skips_window_across_a_gap():
+    # daylight hours 09,10,11 then a gap (12,13 missing) then 14,15,16
+    hours = []
+    for h in (9, 10, 11, 14, 15, 16):
+        e = d.HourFc(dt=NOW.replace(hour=h))
+        e.score = 90.0
+        e.is_day = True
+        hours.append(e)
+    _, win = d.best_block(hours, 5, interval_h=1.0)
+    # every 5-entry window straddles the 11->14 gap -> all skipped
+    assert win is None
+
+
+# ---------------------------------------------------------------- l10n coverage
+_EMITTED_REASON_CODES = {
+    "no_forecast",
+    "mold",
+    "outdoor_good",
+    "outdoor_weak",
+    "tomorrow_better",
+    "no_room",
+    "room_best",
+    "vent_useful",
+    "vent_useless",
+    "room_dry_enough",
+    "window_open",
+    "window_closed",
+    "no_dryer",
+}
+
+
+def test_l10n_headlines_cover_every_state():
+    for lang in ("en", "de"):
+        assert set(l10n._HEADLINES[lang]) >= set(d.STATES), lang
+
+
+def test_l10n_reasons_cover_every_emitted_code():
+    for lang in ("en", "de"):
+        assert set(l10n._REASONS[lang]) >= _EMITTED_REASON_CODES, lang
+
+
+def test_l10n_no_dead_reason_keys():
+    # every reason string defined must actually be emitted by evaluate()
+    assert set(l10n._REASONS["en"]) == _EMITTED_REASON_CODES
+    assert set(l10n._REASONS["de"]) == _EMITTED_REASON_CODES

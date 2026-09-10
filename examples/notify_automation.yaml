@@ -38,10 +38,18 @@
           {% endif %}
 
     # --- actuators in the recommended room ---
+    - variables:
+        # every fan / dehumidifier the integration knows about, from rooms[]
+        all_fans: >
+          {{ (state_attr(adv, 'rooms') or []) | map(attribute='fan')
+             | reject('none') | reject('equalto', 'None') | list }}
+        all_dehums: >
+          {{ (state_attr(adv, 'rooms') or []) | map(attribute='dehumidifier')
+             | reject('none') | reject('equalto', 'None') | list }}
     - choose:
         - conditions:
             - condition: template
-              value_template: "{{ state in ['room_ventilate', 'room_dehumidify', 'best_effort'] }}"
+              value_template: "{{ state in ['room_ok', 'room_ventilate', 'room_dehumidify', 'best_effort'] }}"
           sequence:
             - if:
                 - "{{ fan not in [none, 'None', ''] }}"
@@ -55,20 +63,23 @@
                 - action: homeassistant.turn_on
                   target:
                     entity_id: "{{ deh }}"
-        # outside recommended -> turn the indoor actuators back off
+        # drying moved outside / to the dryer / postponed -> turn every known
+        # actuator back off (NOT on mold_risk or unknown)
         - conditions:
             - condition: template
-              value_template: "{{ state.startswith('hang_outside') }}"
+              value_template: >
+                {{ state in ['hang_outside_now', 'hang_outside_later', 'outside_marginal',
+                             'dryer_recommended', 'wait_for_tomorrow', 'defer_wash'] }}
           sequence:
             - if:
-                - "{{ fan not in [none, 'None', ''] }}"
+                - "{{ all_fans | length > 0 }}"
               then:
                 - action: homeassistant.turn_off
                   target:
-                    entity_id: "{{ fan }}"
+                    entity_id: "{{ all_fans }}"
             - if:
-                - "{{ deh not in [none, 'None', ''] }}"
+                - "{{ all_dehums | length > 0 }}"
               then:
                 - action: homeassistant.turn_off
                   target:
-                    entity_id: "{{ deh }}"
+                    entity_id: "{{ all_dehums }}"

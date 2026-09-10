@@ -8,11 +8,13 @@ from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.laundry_advisor.const import (
+    CONF_DRYER,
     CONF_ROOM_HUMIDITY,
     CONF_ROOM_NAME,
     CONF_ROOM_TEMP,
     CONF_ROOM_WINDOW,
     CONF_UPDATE_INTERVAL,
+    CONF_WASHED_BOOLEAN,
     CONF_WEATHER,
     DOMAIN,
     SUBENTRY_TYPE_ROOM,
@@ -47,6 +49,45 @@ async def test_user_flow_aborts_on_duplicate_weather_entity(hass: HomeAssistant)
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_reconfigure_main_entry_keeps_rooms(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MAIN_DATA,
+        title="Laundry Advisor",
+        subentries_data=[
+            {
+                "subentry_type": SUBENTRY_TYPE_ROOM,
+                "title": "Cellar",
+                "unique_id": None,
+                "data": {
+                    CONF_ROOM_NAME: "Cellar",
+                    CONF_ROOM_TEMP: "sensor.cellar_temp",
+                    CONF_ROOM_HUMIDITY: "sensor.cellar_humidity",
+                },
+            }
+        ],
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_WEATHER: WEATHER_ENTITY,
+            CONF_DRYER: "switch.dryer",
+            CONF_WASHED_BOOLEAN: "input_boolean.washed",
+        },
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_DRYER] == "switch.dryer"
+    assert entry.data[CONF_WASHED_BOOLEAN] == "input_boolean.washed"
+    assert len(entry.subentries) == 1  # rooms untouched
 
 
 async def test_options_flow_round_trip(hass: HomeAssistant) -> None:

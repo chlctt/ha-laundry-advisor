@@ -130,15 +130,43 @@ def test_native_value_none_when_no_data() -> None:
     assert sensor.extra_state_attributes is None
 
 
+_COMPONENT = Path(__file__).resolve().parents[2] / "custom_components" / "laundry_advisor"
+
+
 def test_icons_json_covers_every_state() -> None:
-    icons = json.loads(
-        (
-            Path(__file__).resolve().parents[2]
-            / "custom_components"
-            / "laundry_advisor"
-            / "icons.json"
-        ).read_text()
-    )
+    icons = json.loads((_COMPONENT / "icons.json").read_text())
     mapped = icons["entity"]["sensor"]["recommendation"]["state"]
     assert set(mapped) == set(_OPTIONS)
     assert icons["entity"]["sensor"]["recommendation"]["default"]
+
+
+def test_strings_and_translations_cover_every_state() -> None:
+    strings = json.loads((_COMPONENT / "strings.json").read_text(encoding="utf-8"))
+    en = json.loads((_COMPONENT / "translations" / "en.json").read_text(encoding="utf-8"))
+    de = json.loads((_COMPONENT / "translations" / "de.json").read_text(encoding="utf-8"))
+
+    def states(doc: dict) -> set[str]:
+        return set(doc["entity"]["sensor"]["recommendation"]["state"])
+
+    assert states(strings) == set(drying.STATES)
+    assert states(en) == set(drying.STATES)
+    assert states(de) == set(drying.STATES)
+    # en.json is kept byte-identical to strings.json
+    assert (_COMPONENT / "strings.json").read_bytes() == (
+        _COMPONENT / "translations" / "en.json"
+    ).read_bytes()
+
+
+def _flatten(doc: dict, prefix: str = "") -> set[str]:
+    out: set[str] = set()
+    for k, v in doc.items():
+        key = f"{prefix}.{k}" if prefix else k
+        out |= _flatten(v, key) if isinstance(v, dict) else {key}
+    return out
+
+
+def test_de_translation_has_no_missing_keys() -> None:
+    en = json.loads((_COMPONENT / "translations" / "en.json").read_text(encoding="utf-8"))
+    de = json.loads((_COMPONENT / "translations" / "de.json").read_text(encoding="utf-8"))
+    missing = _flatten(en) - _flatten(de)
+    assert not missing, f"de.json missing: {sorted(missing)}"

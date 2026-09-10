@@ -48,7 +48,7 @@ async def test_update_data_returns_result(hass: HomeAssistant) -> None:
     entry.add_to_hass(hass)
 
     coordinator = LaundryCoordinator(hass, entry)
-    await coordinator.async_setup()
+    await coordinator._async_setup()
     result = await coordinator._async_update_data()
 
     assert isinstance(result, drying.Result)
@@ -61,7 +61,7 @@ async def test_state_change_schedules_refresh(hass: HomeAssistant) -> None:
     entry = _entry()
     entry.add_to_hass(hass)
     coordinator = LaundryCoordinator(hass, entry)
-    await coordinator.async_setup()
+    await coordinator._async_setup()
 
     calls: list[int] = []
 
@@ -102,7 +102,7 @@ async def test_window_contact_flows_into_room(hass: HomeAssistant) -> None:
     )
     entry.add_to_hass(hass)
     coordinator = LaundryCoordinator(hass, entry)
-    await coordinator.async_setup()
+    await coordinator._async_setup()
     result = await coordinator._async_update_data()
 
     room = result.rooms[0]
@@ -135,7 +135,7 @@ async def test_window_contact_change_schedules_refresh(hass: HomeAssistant) -> N
     )
     entry.add_to_hass(hass)
     coordinator = LaundryCoordinator(hass, entry)
-    await coordinator.async_setup()
+    await coordinator._async_setup()
 
     calls: list[int] = []
 
@@ -153,7 +153,7 @@ async def test_forecast_failure_keeps_last_data(hass: HomeAssistant) -> None:
     entry = _entry()
     entry.add_to_hass(hass)
     coordinator = LaundryCoordinator(hass, entry)
-    await coordinator.async_setup()
+    await coordinator._async_setup()
 
     sentinel = object()
     coordinator.data = sentinel  # type: ignore[assignment]
@@ -168,7 +168,7 @@ async def test_forecast_failure_without_prior_data_raises(hass: HomeAssistant) -
     entry = _entry()
     entry.add_to_hass(hass)
     coordinator = LaundryCoordinator(hass, entry)
-    await coordinator.async_setup()
+    await coordinator._async_setup()
 
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()

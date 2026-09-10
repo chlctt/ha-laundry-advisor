@@ -56,7 +56,9 @@ Requires Home Assistant **≥ 2026.9**.
    name + temperature + humidity sensor; optionally a wall-temperature sensor, a
    window/door contact sensor (see below), a fan and a dehumidifier. Any number
    of rooms.
-4. Fine-tune from the integration's **Configure** dialog – no restart.
+4. Fine-tune from the integration's **Configure** dialog – no restart. To change
+   the weather entity or the optional entities later, use **Reconfigure** on the
+   entry (rooms are kept).
 
 Language follows the Home Assistant UI language (English / German).
 
