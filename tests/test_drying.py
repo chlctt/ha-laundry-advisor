@@ -815,7 +815,7 @@ def test_best_block_window_is_hours_not_entries():
         e.score = 50.0 if i < 3 else 90.0
         e.is_day = True
         hours.append(e)
-    score, win = d.best_block(hours, block_hours=6, interval_h=3.0)
+    score, win = d.best_block(hours, block_hours=6)
     assert score == pytest.approx(90.0)  # the two 90-score entries, not a 5-entry mean
     assert win == (18, 24)  # 18:00 + one 3 h step, capped at 24
 
@@ -828,9 +828,22 @@ def test_best_block_skips_window_across_a_gap():
         e.score = 90.0
         e.is_day = True
         hours.append(e)
-    _, win = d.best_block(hours, 5, interval_h=1.0)
+    _, win = d.best_block(hours, 5)
     # every 5-entry window straddles the 11->14 gap -> all skipped
     assert win is None
+
+
+def test_best_block_regular_3hourly_day_not_skipped():
+    # a regularly-spaced coarse day must NOT be treated as full of gaps
+    hours = []
+    for h in (9, 12, 15, 18):
+        e = d.HourFc(dt=NOW.replace(hour=h))
+        e.score = 75.0
+        e.is_day = True
+        hours.append(e)
+    score, win = d.best_block(hours, block_hours=5)
+    assert score == pytest.approx(75.0)
+    assert win is not None
 
 
 # ---------------------------------------------------------------- l10n coverage

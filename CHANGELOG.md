@@ -4,6 +4,19 @@ All notable changes to this project. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning per
 [SemVer](https://semver.org/).
 
+## [0.4.2] – 2026-09-10
+
+### Fixed
+- `best_block` now takes the forecast spacing from **each day's own** daylight
+  entries. A regularly 3-hourly (or otherwise coarse) day is no longer treated
+  as one big gap and scored 0 – the v0.4.1 gap check compared every day against
+  the global median interval.
+- Window length rounds up on a `.5` ratio (a 2-hourly forecast with the default
+  5 h block gets a 3-entry / 6 h window, not 2 / 4 h).
+- Example automation: `wait_for_tomorrow` (laundry drying on a rack today) no
+  longer triggers the "turn every actuator off" branch.
+- Translation-parity test now also fails on stale keys in `de.json`.
+
 ## [0.4.1] – 2026-09-10
 
 Follow-up review fixes.
