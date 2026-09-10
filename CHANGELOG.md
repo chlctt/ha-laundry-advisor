@@ -4,6 +4,21 @@ All notable changes to this project. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning per
 [SemVer](https://semver.org/).
 
+## [0.3.1] – 2026-09-10
+
+### Fixed
+- Integration config flow: dropped the `device_class` filter on the
+  temperature / humidity entity pickers. Group / template / min-max helper
+  sensors derive `device_class` at runtime and carry none in the entity
+  registry, so the filter hid exactly the average sensors this integration is
+  meant to use.
+
+## [0.3.0] – 2026-09-09
+
+Custom integration (`custom_components/laundry_advisor/`): config flow, rooms as
+config subentries, coordinator, one sensor, en/de. The template blueprint stays
+as legacy v0.2.1. See `docs/design-v0.3-integration.md`.
+
 ## [0.2.1] – 2026-09-09
 
 ### Fixed

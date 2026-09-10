@@ -51,12 +51,11 @@ from .const import (
 )
 
 _WEATHER = selector.EntitySelector(selector.EntitySelectorConfig(domain="weather"))
-_TEMP = selector.EntitySelector(
-    selector.EntitySelectorConfig(domain="sensor", device_class="temperature")
-)
-_HUM = selector.EntitySelector(
-    selector.EntitySelectorConfig(domain="sensor", device_class="humidity")
-)
+# No device_class filter: group / template / min-max helpers derive device_class
+# at runtime and carry none in the entity registry, so a device_class filter
+# would hide exactly the average sensors people use here.
+_TEMP = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
+_HUM = _TEMP
 _ANY = selector.EntitySelector(selector.EntitySelectorConfig())
 _BOOL = selector.EntitySelector(selector.EntitySelectorConfig(domain="input_boolean"))
 _ACTUATOR = selector.EntitySelector(
