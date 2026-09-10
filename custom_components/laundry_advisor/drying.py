@@ -248,13 +248,17 @@ def best_block(
 ) -> tuple[float, tuple[int, int] | None]:
     """Mean score of the best contiguous daylight window, and its (start, end) hour.
 
-    Only daylight hours (``is_day``) are considered. Windows that straddle a gap
-    in the forecast (a missing entry) are skipped so the label stays honest.
+    ``block_hours`` is wall-clock hours; it is converted to a number of forecast
+    entries via ``interval_h``. Only daylight hours (``is_day``) are considered,
+    and a window that straddles a gap in the forecast is skipped so the label
+    stays honest.
     """
     day = sorted((h for h in hours if h.is_day), key=lambda h: h.dt)
     if not day:
         return 0.0, None
-    win = min(block_hours, len(day))
+    # block_hours is wall-clock hours -> convert to a number of forecast entries
+    win = max(1, min(round(block_hours / max(interval_h, 0.01)), len(day)))
+    label_h = max(1, round(interval_h))
     step_tol = interval_h * 0.5  # a gap wider than 1.5x the interval breaks the block
     best_v = 0.0
     best_win: tuple[int, int] | None = None
@@ -266,8 +270,9 @@ def best_block(
         mean = sum(h.score for h in seg) / win
         if mean > best_v:
             best_v = mean
-            best_win = (seg[0].dt.hour, (seg[-1].dt.hour + 1) % 24)
-    pen = 0.6 if len(day) < min(block_hours, 4) else 1.0
+            best_win = (seg[0].dt.hour, min(seg[-1].dt.hour + label_h, 24))
+    daylight_h = len(day) * interval_h
+    pen = 0.6 if daylight_h < min(block_hours, 4) else 1.0
     return round(best_v * pen, 1), best_win
 
 

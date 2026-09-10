@@ -13,7 +13,7 @@
           "already_washed_boolean": "Helper: laundry is already washed"
         },
         "data_description": {
-          "weather_entity": "Provides the hourly and daily forecast.",
+          "weather_entity": "Provides the hourly forecast.",
           "precip_prob_entity": "Leave empty if the primary source provides precipitation_probability itself.",
           "dryer_entity": "Any entity representing the dryer. Presence flag only.",
           "already_washed_boolean": "input_boolean. Switches wait_for_tomorrow vs. defer_wash."
@@ -31,7 +31,7 @@
           "already_washed_boolean": "Helper: laundry is already washed"
         },
         "data_description": {
-          "weather_entity": "Provides the hourly and daily forecast.",
+          "weather_entity": "Provides the hourly forecast.",
           "precip_prob_entity": "Leave empty if the primary source provides precipitation_probability itself.",
           "dryer_entity": "Any entity representing the dryer. Presence flag only.",
           "already_washed_boolean": "input_boolean. Switches wait_for_tomorrow vs. defer_wash."

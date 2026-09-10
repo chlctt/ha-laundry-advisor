@@ -13,7 +13,7 @@
           "already_washed_boolean": "Helfer: Wäsche ist bereits gewaschen"
         },
         "data_description": {
-          "weather_entity": "Liefert die stündliche und tägliche Vorhersage.",
+          "weather_entity": "Liefert die stündliche Vorhersage.",
           "precip_prob_entity": "Leer lassen, wenn die Primärquelle selbst precipitation_probability liefert.",
           "dryer_entity": "Beliebige Entität, die den Trockner repräsentiert. Nur Vorhandensein-Flag.",
           "already_washed_boolean": "input_boolean. Steuert wait_for_tomorrow vs. defer_wash."
@@ -31,7 +31,7 @@
           "already_washed_boolean": "Helfer: Wäsche ist bereits gewaschen"
         },
         "data_description": {
-          "weather_entity": "Liefert die stündliche und tägliche Vorhersage.",
+          "weather_entity": "Liefert die stündliche Vorhersage.",
           "precip_prob_entity": "Leer lassen, wenn die Primärquelle selbst precipitation_probability liefert.",
           "dryer_entity": "Beliebige Entität, die den Trockner repräsentiert. Nur Vorhandensein-Flag.",
           "already_washed_boolean": "input_boolean. Steuert wait_for_tomorrow vs. defer_wash."

@@ -807,6 +807,19 @@ def test_evaluate_duplicate_room_names_flag_exactly_one():
     assert rec["temperature"] == 24.0
 
 
+def test_best_block_window_is_hours_not_entries():
+    # 3-hourly forecast, block_hours=6 -> 2 entries per window
+    hours = []
+    for i in range(6):
+        e = d.HourFc(dt=NOW.replace(hour=9) + timedelta(hours=3 * i))
+        e.score = 50.0 if i < 3 else 90.0
+        e.is_day = True
+        hours.append(e)
+    score, win = d.best_block(hours, block_hours=6, interval_h=3.0)
+    assert score == pytest.approx(90.0)  # the two 90-score entries, not a 5-entry mean
+    assert win == (18, 24)  # 18:00 + one 3 h step, capped at 24
+
+
 def test_best_block_skips_window_across_a_gap():
     # daylight hours 09,10,11 then a gap (12,13 missing) then 14,15,16
     hours = []
