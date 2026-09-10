@@ -11,6 +11,9 @@ All notable changes to this project. Format based on
   *Helpers* tab to *Settings → Devices & Services → Integrations*, where the
   **Add drying room** button actually renders – the Helpers-tab row only ever
   opened the options dialog, which is why rooms could not be added in the UI.
+- The README now states the minimum Home Assistant version as **≥ 2026.9**, to
+  match the (unchanged) `hacs.json` floor. HACS will not offer the update on
+  older cores.
 - **Rooms need a window/door contact to be considered ventilatable.** New
   optional per-room `window_entity` (`binary_sensor`): its presence marks the
   room as airable and its state picks the wording ("open the window there" vs

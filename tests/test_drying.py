@@ -566,7 +566,40 @@ def test_evaluate_room_ventilate_window_open_reason():
         has_dryer=True,
     )
     assert r.state == "room_ventilate"
-    assert {"code": "window_open"} in r.reason_codes
+    assert {"code": "window_open", "n": "Attic"} in r.reason_codes
+
+
+def test_evaluate_room_ventilate_unknown_contact_no_window_reason():
+    # window_open None (contact unknown/unavailable) -> still ventilate, no window_* code
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("Attic", 20, 62, window_entity="binary_sensor.attic", window_open=None)],
+        outdoor=d.Outdoor(2, 70),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert r.state == "room_ventilate"
+    assert not any(c["code"] in ("window_open", "window_closed") for c in r.reason_codes)
+
+
+def test_evaluate_windowless_room_still_reaches_dehumidify():
+    # humid, dehumidifier present, no window -> dehumidify (not blocked by the window gate)
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("Attic", 22, 60, dehumidifier_entity="switch.d")],
+        outdoor=d.Outdoor(2, 70),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert r.state == "room_dehumidify"
 
 
 def test_evaluate_final_unknown_no_rooms_no_dryer():

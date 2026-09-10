@@ -421,7 +421,7 @@ def evaluate(
                 {"code": "vent_useful"},
             ]
             if cand.window_open is True:
-                codes.append({"code": "window_open"})
+                codes.append({"code": "window_open", "n": cand.name})
             elif cand.window_open is False:
                 codes.append({"code": "window_closed", "n": cand.name})
         elif cand.has_dehumidifier and (cand.humidity or 0) >= 55:

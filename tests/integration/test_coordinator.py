@@ -112,6 +112,8 @@ async def test_window_contact_flows_into_room(hass: HomeAssistant) -> None:
 
 async def test_window_contact_change_schedules_refresh(hass: HomeAssistant) -> None:
     register_mock_forecast(hass)
+    hass.states.async_set(ROOM_TEMP, "20")
+    hass.states.async_set(ROOM_HUM, "62")
     hass.states.async_set(WINDOW, "off")
     entry = MockConfigEntry(
         domain=DOMAIN,
