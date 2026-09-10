@@ -39,11 +39,13 @@
             "temp_entity": "Temperature sensor",
             "humidity_entity": "Humidity sensor",
             "wall_temp_entity": "Coldest wall/surface temperature sensor",
+            "window_entity": "Window / door contact sensor",
             "fan_entity": "Fan",
             "dehumidifier_entity": "Dehumidifier"
           },
           "data_description": {
             "wall_temp_entity": "Optional. Without it the mould guard uses the room humidity.",
+            "window_entity": "Optional binary_sensor. Set it if the room can be aired – leave empty for a room with no window/door, and airing won't be suggested for it.",
             "fan_entity": "Optional.",
             "dehumidifier_entity": "Optional."
           }

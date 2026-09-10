@@ -7,41 +7,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  blueprint:
+  examples:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: yamllint
         run: |
           pipx install yamllint
-          yamllint -d relaxed blueprints/ examples/
-      - name: Parse blueprint & examples (HA YAML tags aware)
-        run: |
-          python - <<'PY'
-          import glob
-          import yaml
-
-          class HALoader(yaml.SafeLoader):
-              pass
-
-          def _passthrough(loader, node):
-              if isinstance(node, yaml.ScalarNode):
-                  return loader.construct_scalar(node)
-              if isinstance(node, yaml.SequenceNode):
-                  return loader.construct_sequence(node)
-              return loader.construct_mapping(node)
-
-          for tag in ("!input", "!secret", "!include", "!include_dir_list",
-                      "!include_dir_named", "!include_dir_merge_list",
-                      "!include_dir_merge_named", "!env_var"):
-              HALoader.add_constructor(tag, _passthrough)
-
-          for f in glob.glob("blueprints/**/*.yaml", recursive=True) + \
-                   glob.glob("examples/**/*.yaml", recursive=True):
-              with open(f, encoding="utf-8") as fh:
-                  yaml.load(fh, Loader=HALoader)
-              print("ok:", f)
-          PY
+          yamllint -d relaxed examples/
 
   lint:
     runs-on: ubuntu-latest

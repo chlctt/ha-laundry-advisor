@@ -3,8 +3,7 @@
 Recommends the **best place to dry laundry** – outside on the line, in one of your
 indoor rooms, in the tumble dryer – or tells you to wait until tomorrow to wash.
 
-Ships as a **custom integration** (recommended) and, for anyone not ready to
-switch, a legacy **template blueprint**.
+Ships as a Home Assistant **custom integration**, installable through HACS.
 
 Matching Lovelace card: **[laundry-advisor-card](https://github.com/chlctt/laundry-advisor-card)**.
 
@@ -13,7 +12,7 @@ Matching Lovelace card: **[laundry-advisor-card](https://github.com/chlctt/laund
 ## What it produces
 
 One sensor (`sensor.laundry_advisor`): **state** = the recommendation, everything
-else as **attributes**. Same contract for the integration and the blueprint.
+else as **attributes**.
 
 | Value | Where |
 |---|---|
@@ -44,62 +43,41 @@ else as **attributes**. Same contract for the integration and the blueprint.
 
 ---
 
-## Integration (recommended)
+## Setup
 
-Requires Home Assistant **≥ 2025.6**.
+Requires Home Assistant **≥ 2026.9**.
 
 1. **HACS** → ⋮ → *Custom repositories* → `https://github.com/chlctt/ha-laundry-advisor`,
    category **Integration** → download → restart HA.
 2. *Settings → Devices & Services → Add Integration → Laundry Advisor.*
    Pick the weather entity (and optionally a second one for precipitation
    probability, outdoor sensors, a dryer entity, an "already washed" boolean).
-3. On the integration's page: **Add drying room** for each candidate room
-   (name + temperature + humidity sensor; optionally a wall-temperature sensor,
-   a fan and a dehumidifier). Any number of rooms.
-4. Fine-tune from the integration's **Configure** dialog – no restart, no
-   `template.reload`.
+3. On the integration's page: **Add drying room** for each candidate room –
+   name + temperature + humidity sensor; optionally a wall-temperature sensor, a
+   window/door contact sensor (see below), a fan and a dehumidifier. Any number
+   of rooms.
+4. Fine-tune from the integration's **Configure** dialog – no restart.
 
 Language follows the Home Assistant UI language (English / German).
 
-### Migration from the template blueprint
+### The window/door contact per room
 
-1. Install and configure the integration with the same weather entity + rooms.
-2. Remove the `template:` `use_blueprint:` block (and the blueprint file) from
-   your YAML so the entity ids don't clash.
-3. Repoint the dashboard card / notification automation if the entity id changed.
+Set it for a room that **can be aired**. The contact state then only picks the
+wording ("open the window there" vs. "the window is already open"). Leave it
+empty for a room with no window or outside door – `room_ventilate` and the airing
+score bonus are then never applied to that room.
 
-The blueprint stays available; there is no rush.
+> Coming from an older version without this field: your existing rooms have no
+> contact set, so they are treated as not ventilatable until you add one. A
+> `binary_sensor` group of the room's window sensors works too.
 
----
+### Upgrading from the template blueprint (v0.3 and earlier)
 
-## Template blueprint (legacy, v0.2.1)
-
-Kept for users who cannot run the integration. It is **not** developed further –
-new work goes into the integration.
-
-Install: copy
-[`blueprints/template/laundry_advisor.yaml`](blueprints/template/laundry_advisor.yaml)
-to `config/blueprints/template/chilcott/`, then in `configuration.yaml`:
-
-```yaml
-template:
-  - use_blueprint:
-      path: chilcott/laundry_advisor.yaml
-      input:
-        weather_entity: weather.home
-        precip_prob_entity: weather.metno       # optional
-        language: en                            # en | de
-        dryer_entity: switch.tumble_dryer_plug  # optional
-        room_1_name: Basement
-        room_1_temp: sensor.basement_temperature
-        room_1_humidity: sensor.basement_humidity
-```
-
-> ⚠️ Template blueprints have no UI. After changing the file *or* the
-> `use_blueprint` inputs: restart HA, wait for the boot, then `template.reload`
-> (occasionally twice).
-
-Up to five room slots. See the file's inputs for the rest.
+The template blueprint was removed in v0.4. If you still run it: install and
+configure the integration with the same weather entity + rooms, remove the
+`template:` `use_blueprint:` block from your YAML so the entity ids don't clash,
+and repoint the dashboard card / notification automation if the id changed. The
+last blueprint version stays in the git history (tag `v0.3.1`).
 
 ---
 
@@ -115,20 +93,24 @@ Up to five room slots. See the file's inputs for the rest.
 Rain > 0.1 mm/h → outdoor score 0. Bands: ≥ `score_hang` (70) hang outside,
 ≥ `score_marginal` (55) marginal, below that indoors. A room is "usable" below
 `room_rh_max` (65 %) and at/above `room_temp_min` (15 °C); airing is recommended
-when the outdoor dew point is ≥ `vent_dewpoint_margin` (5 K) below the room's.
+when the outdoor dew point is ≥ `vent_dewpoint_margin` (5 K) below the room's
+*and* the room has a window/door contact configured.
 
 Derivation & sources: [`docs/logic.md`](docs/logic.md).
-Integration design: [`docs/design-v0.3-integration.md`](docs/design-v0.3-integration.md).
+Integration design: [`docs/design.md`](docs/design.md).
 
 ---
 
 ## Development
 
 ```bash
-pip install ruff pytest homeassistant
+pip install ruff pytest
 ruff check custom_components/ tests/
 ruff format --check custom_components/ tests/
-pytest tests/          # pure logic, no HA needed
+pytest tests/test_drying.py                       # pure logic, no HA needed
+
+pip install pytest-homeassistant-custom-component
+pytest tests/integration/                         # HA-dependent (Linux/WSL)
 ```
 
 ## Credits / prior art
