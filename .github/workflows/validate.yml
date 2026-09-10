@@ -53,7 +53,7 @@ jobs:
           from awesomeversion import AwesomeVersion
           from homeassistant.const import __version__ as ha
 
-          floor = json.load(open("custom_components/laundry_advisor/hacs.json"))["homeassistant"]
+          floor = json.load(open("hacs.json"))["homeassistant"]
           assert AwesomeVersion(ha) >= AwesomeVersion(floor), f"HA {ha} < floor {floor}"
           print(f"HA {ha} >= floor {floor}")
           PY
