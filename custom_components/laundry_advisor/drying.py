@@ -243,35 +243,38 @@ def _is_day(h: HourFc, cfg: Config) -> bool:
     return cfg.day_start <= h.dt.hour < cfg.day_end
 
 
-def best_block(
-    hours: list[HourFc], block_hours: int, interval_h: float = 1.0
-) -> tuple[float, tuple[int, int] | None]:
+def best_block(hours: list[HourFc], block_hours: int) -> tuple[float, tuple[int, int] | None]:
     """Mean score of the best contiguous daylight window, and its (start, end) hour.
 
-    ``block_hours`` is wall-clock hours; it is converted to a number of forecast
-    entries via ``interval_h``. Only daylight hours (``is_day``) are considered,
-    and a window that straddles a gap in the forecast is skipped so the label
-    stays honest.
+    ``block_hours`` is wall-clock hours. The spacing is taken from *this day's*
+    own daylight entries, so a regularly 3-hourly day is fine – only a genuinely
+    missing entry (a gap larger than 1.5x the day's own step) breaks a window.
+    Only daylight hours (``is_day``) are considered. The end hour is exclusive
+    and may be 24 (= end of day).
     """
     day = sorted((h for h in hours if h.is_day), key=lambda h: h.dt)
     if not day:
         return 0.0, None
-    # block_hours is wall-clock hours -> convert to a number of forecast entries
-    win = max(1, min(round(block_hours / max(interval_h, 0.01)), len(day)))
-    label_h = max(1, round(interval_h))
-    step_tol = interval_h * 0.5  # a gap wider than 1.5x the interval breaks the block
+    steps = sorted(
+        (day[k + 1].dt - day[k].dt).total_seconds() / 3600.0
+        for k in range(len(day) - 1)
+        if (day[k + 1].dt - day[k].dt).total_seconds() > 0
+    )
+    step_h = steps[len(steps) // 2] if steps else 1.0
+    win = max(1, min(int(block_hours / max(step_h, 0.01) + 0.5), len(day)))
+    label_h = max(1, round(step_h))
     best_v = 0.0
     best_win: tuple[int, int] | None = None
     for i in range(len(day) - win + 1):
         seg = day[i : i + win]
-        gaps = ((seg[k + 1].dt - seg[k].dt).total_seconds() / 3600.0 for k in range(len(seg) - 1))
-        if any(abs(g - interval_h) > step_tol for g in gaps):
-            continue  # a missing forecast entry – window label would lie
+        gaps = [(seg[k + 1].dt - seg[k].dt).total_seconds() / 3600.0 for k in range(len(seg) - 1)]
+        if gaps and max(gaps) > step_h * 1.5:
+            continue  # a missing forecast entry – the window label would lie
         mean = sum(h.score for h in seg) / win
         if mean > best_v:
             best_v = mean
             best_win = (seg[0].dt.hour, min(seg[-1].dt.hour + label_h, 24))
-    daylight_h = len(day) * interval_h
+    daylight_h = len(day) * step_h
     pen = 0.6 if daylight_h < min(block_hours, 4) else 1.0
     return round(best_v * pen, 1), best_win
 
@@ -376,7 +379,7 @@ def evaluate(
 
     # one best_block per date, reused everywhere
     blocks: dict[str, tuple[float, tuple[int, int] | None]] = {
-        d: best_block(day_hours(d), cfg.block_hours, interval_h) for d in sorted(by_date)
+        d: best_block(day_hours(d), cfg.block_hours) for d in sorted(by_date)
     }
 
     def score_of(date_str: str) -> float:

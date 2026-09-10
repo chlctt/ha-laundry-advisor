@@ -165,8 +165,8 @@ def _flatten(doc: dict, prefix: str = "") -> set[str]:
     return out
 
 
-def test_de_translation_has_no_missing_keys() -> None:
-    en = json.loads((_COMPONENT / "translations" / "en.json").read_text(encoding="utf-8"))
-    de = json.loads((_COMPONENT / "translations" / "de.json").read_text(encoding="utf-8"))
-    missing = _flatten(en) - _flatten(de)
-    assert not missing, f"de.json missing: {sorted(missing)}"
+def test_de_and_en_translations_have_the_same_keys() -> None:
+    en = _flatten(json.loads((_COMPONENT / "translations" / "en.json").read_text(encoding="utf-8")))
+    de = _flatten(json.loads((_COMPONENT / "translations" / "de.json").read_text(encoding="utf-8")))
+    assert not en - de, f"de.json missing: {sorted(en - de)}"
+    assert not de - en, f"de.json has stale keys: {sorted(de - en)}"

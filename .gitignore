@@ -6,3 +6,7 @@ __pycache__/
 node_modules/
 .idea/
 .vscode/
+
+# code-review skill working dir (not part of the integration)
+.agents/
+skills-lock.json
