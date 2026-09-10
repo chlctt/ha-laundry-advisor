@@ -31,7 +31,7 @@ STATES = (
     "unknown",
 )
 
-ROOM_STATUSES = ("ok", "too_humid", "too_cold", "mold_risk")
+ROOM_STATUSES = ("ok", "too_humid", "too_cold", "mold_risk", "no_data")
 
 
 def sat_vp(t: float) -> float:
@@ -279,18 +279,38 @@ def best_block(hours: list[HourFc], block_hours: int) -> tuple[float, tuple[int,
     return round(best_v * pen, 1), best_win
 
 
-def room_score(r: RoomState, outdoor_dew: float | None, cfg: Config) -> RoomScore | None:
+def room_score(r: RoomState, outdoor_dew: float | None, cfg: Config) -> RoomScore:
+    has_fan = r.fan_entity is not None
+    has_deh = r.dehumidifier_entity is not None
+    has_window = r.window_entity is not None
     if r.temp is None or r.humidity is None:
-        return None
+        # keep the configured room visible (as "no data") instead of dropping it
+        return RoomScore(
+            name=r.name,
+            score=0.0,
+            status="no_data",
+            temperature=None if r.temp is None else round(r.temp, 1),
+            humidity=None if r.humidity is None else round(_clamp_rh(r.humidity), 1),
+            dewpoint=None,
+            abs_humidity=None,
+            vpd=None,
+            ventilation_useful=False,
+            has_window=has_window,
+            window_open=r.window_open,
+            has_fan=has_fan,
+            has_dehumidifier=has_deh,
+            fan=r.fan_entity if has_fan else None,
+            dehumidifier=r.dehumidifier_entity if has_deh else None,
+            surface_rh_estimate=None,
+            suitable=False,
+            mold_risk=False,
+        )
     rh = _clamp_rh(r.humidity)  # a sensor reporting > 100 % must not break the maths
     td = dew_point(r.temp, rh)
     ah = abs_humidity(r.temp, rh)
     v = vpd(r.temp, rh)
-    has_window = r.window_entity is not None
     # airing only helps if the room can be aired AND the outdoor air is drier
     vent = has_window and outdoor_dew is not None and outdoor_dew <= td - cfg.vent_margin
-    has_fan = r.fan_entity is not None
-    has_deh = r.dehumidifier_entity is not None
 
     if r.wall_temp is not None:
         surf_rh = min(rh * sat_vp(r.temp) / sat_vp(r.wall_temp), 100.0)
@@ -403,11 +423,13 @@ def evaluate(
         else None
     )
 
-    scored = [rs for r in rooms if (rs := room_score(r, outdoor_dew, cfg))]
+    scored = [room_score(r, outdoor_dew, cfg) for r in rooms]
     scored.sort(key=lambda rs: rs.score, reverse=True)
-    best_room = scored[0] if scored else None
-    suitable = [rs for rs in scored if rs.suitable]
-    all_mold = bool(scored) and all(rs.mold_risk for rs in scored)
+    # rooms whose sensors are actually reporting – the only ones we reason about
+    live = [rs for rs in scored if rs.status != "no_data"]
+    best_room = live[0] if live else None
+    suitable = [rs for rs in live if rs.suitable]
+    all_mold = bool(live) and all(rs.mold_risk for rs in live)
 
     st = "unknown"
     chosen: RoomScore | None = None  # the specific room object we recommend

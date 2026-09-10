@@ -4,6 +4,15 @@ All notable changes to this project. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning per
 [SemVer](https://semver.org/).
 
+## [0.4.3] – 2026-09-10
+
+### Changed
+- A room whose temperature or humidity sensor is unavailable now stays in the
+  `rooms[]` attribute with `status: "no_data"` (score 0) instead of being
+  dropped. A brief sensor outage no longer makes a configured room disappear
+  from the card. Such rooms are never recommended and do not affect the
+  `mold_risk` / `best_effort` decision.
+
 ## [0.4.2] – 2026-09-10
 
 ### Fixed

@@ -155,8 +155,21 @@ def test_best_block_all_zero_no_window():
 
 
 # ------------------------------------------------------------------ room_score
-def test_room_score_none_without_sensors():
-    assert d.room_score(d.RoomState("X", None, None), None, d.Config()) is None
+def test_room_score_no_data_without_sensors():
+    rs = d.room_score(
+        d.RoomState("X", None, None, window_entity="binary_sensor.w"), None, d.Config()
+    )
+    assert rs.status == "no_data"
+    assert rs.score == 0.0
+    assert not rs.suitable and not rs.mold_risk
+    assert rs.temperature is None and rs.humidity is None
+    assert rs.has_window is True  # config-derived flags still populated
+
+
+def test_room_score_partial_data_is_no_data():
+    rs = d.room_score(d.RoomState("X", 21.0, None), None, d.Config())
+    assert rs.status == "no_data"
+    assert rs.temperature == 21.0 and rs.humidity is None
 
 
 def test_room_score_dry_warm_room_suitable_high():
@@ -585,6 +598,59 @@ def test_evaluate_room_ventilate_unknown_contact_no_window_reason():
     )
     assert r.state == "room_ventilate"
     assert not any(c["code"] in ("window_open", "window_closed") for c in r.reason_codes)
+
+
+def test_evaluate_no_data_room_stays_listed_but_not_recommended():
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("Broken", None, None), d.RoomState("Attic", 24, 52)],
+        outdoor=d.Outdoor(15, 95),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert r.state == "room_ok"
+    assert r.recommended_room == "Attic"
+    names = {x["name"]: x for x in r.rooms}
+    assert set(names) == {"Broken", "Attic"}
+    assert names["Broken"]["status"] == "no_data"
+    assert names["Broken"]["recommended"] is False
+    # no_data sorts to the bottom
+    assert r.rooms[-1]["name"] == "Broken"
+
+
+def test_evaluate_all_rooms_no_data_falls_through():
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("A", None, None), d.RoomState("B", None, None)],
+        outdoor=d.Outdoor(15, 95),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert r.state == "dryer_recommended"  # not mold_risk, not best_effort
+    assert len(r.rooms) == 2 and all(x["status"] == "no_data" for x in r.rooms)
+
+
+def test_evaluate_no_data_room_does_not_suppress_mold_risk():
+    r = d.evaluate(
+        hourly=_rainy_hours(),
+        daily=[],
+        prob=[],
+        rooms=[d.RoomState("Wet", 20, 90), d.RoomState("Broken", None, None)],
+        outdoor=d.Outdoor(15, 95),
+        cfg=d.Config(),
+        now=NOW,
+        washed=False,
+        has_dryer=True,
+    )
+    assert r.state == "mold_risk"
 
 
 def test_evaluate_windowless_room_still_reaches_dehumidify():
