@@ -434,6 +434,8 @@ def evaluate(
     st = "unknown"
     chosen: RoomScore | None = None  # the specific room object we recommend
     codes: list[dict] = []
+    # rooms are configured but none is reporting a value right now
+    no_room_code = "no_room_data" if (scored and not live) else "no_room"
 
     if not forecast_ok:
         st, codes = "unknown", [{"code": "no_forecast"}]
@@ -482,7 +484,7 @@ def evaluate(
             ]
     elif has_dryer:
         st = "dryer_recommended"
-        codes = [{"code": "no_room"}, {"code": "outdoor_weak", "s": round(today_score)}]
+        codes = [{"code": no_room_code}, {"code": "outdoor_weak", "s": round(today_score)}]
     elif best_room is not None:
         st = "best_effort"
         chosen = best_room
@@ -492,7 +494,7 @@ def evaluate(
             {"code": "room_best", "n": best_room.name, "s": round(best_room.score)},
         ]
     else:
-        st, codes = "unknown", [{"code": "no_room"}]
+        st, codes = "unknown", [{"code": no_room_code}]
 
     for rs in scored:
         rs.recommended = rs is chosen

@@ -618,8 +618,9 @@ def test_evaluate_no_data_room_stays_listed_but_not_recommended():
     assert set(names) == {"Broken", "Attic"}
     assert names["Broken"]["status"] == "no_data"
     assert names["Broken"]["recommended"] is False
-    # no_data sorts to the bottom
-    assert r.rooms[-1]["name"] == "Broken"
+    # the recommended room comes before the no_data one
+    order = [x["name"] for x in r.rooms]
+    assert order.index("Attic") < order.index("Broken")
 
 
 def test_evaluate_all_rooms_no_data_falls_through():
@@ -636,6 +637,7 @@ def test_evaluate_all_rooms_no_data_falls_through():
     )
     assert r.state == "dryer_recommended"  # not mold_risk, not best_effort
     assert len(r.rooms) == 2 and all(x["status"] == "no_data" for x in r.rooms)
+    assert {"code": "no_room_data"} in r.reason_codes  # not the misleading "no_room"
 
 
 def test_evaluate_no_data_room_does_not_suppress_mold_risk():
@@ -920,6 +922,7 @@ _EMITTED_REASON_CODES = {
     "outdoor_weak",
     "tomorrow_better",
     "no_room",
+    "no_room_data",
     "room_best",
     "vent_useful",
     "vent_useless",
