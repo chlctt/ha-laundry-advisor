@@ -4,6 +4,35 @@ All notable changes to this project. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning per
 [SemVer](https://semver.org/).
 
+## [0.4.1] – 2026-09-10
+
+Follow-up review fixes.
+
+### Added
+- **Reconfigure** flow for the main entry: change the weather entity, the
+  precipitation source, the outdoor sensors, the dryer entity or the "already
+  washed" helper afterwards without deleting the entry (and its rooms).
+- New fine-tuning option **`room_dehumidify_rh`** (default 55 %) – the room
+  humidity from which a dehumidifier is recommended was previously hard-coded.
+
+### Fixed
+- The coordinator's setup hook is now `_async_setup`, invoked once by
+  `async_config_entry_first_refresh()`, instead of a separate public method
+  called from `__init__`.
+- The **daily** forecast is no longer fetched – it was unused, and a weather
+  entity that only supports one forecast type made the whole integration fail to
+  start.
+- Room subentry **reconfigure** form: the window/door contact field now has a
+  translated label and description (it was showing the raw key).
+- A relative-humidity sensor reading above 100 % no longer produces a dew point
+  above the air temperature.
+- The best-window search skips a window that spans a gap in the forecast, so the
+  reported hours stay honest with an incomplete forecast.
+- Duplicate room names no longer flag more than one room as `recommended`.
+- `manifest.json`: `dependencies` → `after_dependencies` for `weather`.
+- Example notification automation: handles `room_ok`, and turns every known
+  room actuator back off when drying moves outside.
+
 ## [0.4.0] – 2026-09-10
 
 ### Changed / Breaking

@@ -21,6 +21,7 @@ from .const import (
     CONF_OUTDOOR_TEMP,
     CONF_PRECIP_PROB,
     CONF_ROOM_DEHUMIDIFIER,
+    CONF_ROOM_DEHUMIDIFY_RH,
     CONF_ROOM_FAN,
     CONF_ROOM_HUMIDITY,
     CONF_ROOM_NAME,
@@ -78,8 +79,12 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
         self._opts = opts
 
     # -- lifecycle ------------------------------------------------------------
-    async def async_setup(self) -> None:
-        """Wire up state-change listeners for every entity we read."""
+    async def _async_setup(self) -> None:
+        """Wire up state-change listeners for every entity we read.
+
+        The base ``DataUpdateCoordinator`` calls this exactly once, from
+        ``async_config_entry_first_refresh()``.
+        """
         entry = self.config_entry
         watched: set[str] = set()
         for key in (
@@ -125,7 +130,6 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
 
         try:
             hourly = await self._forecast(weather, "hourly")
-            daily = await self._forecast(weather, "daily")
         except Exception as err:  # a flaky forecast must never kill the coordinator
             if self.data is not None:
                 _LOGGER.debug("forecast fetch failed, keeping last result: %s", err)
@@ -179,13 +183,14 @@ class LaundryCoordinator(DataUpdateCoordinator[drying.Result]):
             score_marginal=float(self._opts[CONF_SCORE_MARGINAL]),
             wait_delta=float(self._opts[CONF_WAIT_DELTA]),
             room_rh_max=float(self._opts[CONF_ROOM_RH_MAX]),
+            room_dehumidify_rh=float(self._opts[CONF_ROOM_DEHUMIDIFY_RH]),
             room_temp_min=float(self._opts[CONF_ROOM_TEMP_MIN]),
             vent_margin=float(self._opts[CONF_VENT_MARGIN]),
         )
 
         return drying.evaluate(
             hourly=hourly,
-            daily=daily,
+            daily=[],  # reserved – evaluate() does not use a daily forecast yet
             prob=prob,
             rooms=rooms,
             outdoor=outdoor,

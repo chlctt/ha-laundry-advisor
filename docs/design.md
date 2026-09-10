@@ -83,8 +83,9 @@ With zero rooms the integration still works in outdoor-only mode.
 All fine-tuning: `update_interval_minutes` (15), `block_hours` (5),
 `day_start_hour` (8), `day_end_hour` (20), `score_hang` (70),
 `score_marginal` (55), `wait_delta` (20), `weight_wind/humidity/sun/temperature`
-(35/30/20/15), `room_rh_max` (65), `room_temp_min` (15),
-`vent_dewpoint_margin` (5). Changing an option reloads the entry – no restart.
+(35/30/20/15), `room_rh_max` (65), `room_dehumidify_rh` (55), `room_temp_min`
+(15), `vent_dewpoint_margin` (5). Changing an option reloads the entry – no
+restart. The main entry's entities are edited via **Reconfigure**.
 
 ## Coordinator
 

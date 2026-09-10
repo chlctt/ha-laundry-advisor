@@ -39,9 +39,14 @@ def sat_vp(t: float) -> float:
     return _A * math.exp(_B * t / (_C + t))
 
 
+def _clamp_rh(rh: float) -> float:
+    """Keep a relative humidity in a physical 0.5..100 % range."""
+    return min(max(rh, 0.5), 100.0)
+
+
 def dew_point(t: float, rh: float) -> float:
     """Dew point in °C from temperature (°C) and relative humidity (%)."""
-    rh = max(rh, 0.5)
+    rh = _clamp_rh(rh)
     gamma = math.log(rh / 100.0) + _B * t / (_C + t)
     return _C * gamma / (_B - gamma)
 
@@ -81,6 +86,7 @@ class Config:
     wait_delta: float = 20.0
     room_rh_max: float = 65.0
     room_temp_min: float = 15.0
+    room_dehumidify_rh: float = 55.0
     vent_margin: float = 5.0
 
 
@@ -237,23 +243,30 @@ def _is_day(h: HourFc, cfg: Config) -> bool:
     return cfg.day_start <= h.dt.hour < cfg.day_end
 
 
-def best_block(hours: list[HourFc], block_hours: int) -> tuple[float, tuple[int, int] | None]:
+def best_block(
+    hours: list[HourFc], block_hours: int, interval_h: float = 1.0
+) -> tuple[float, tuple[int, int] | None]:
     """Mean score of the best contiguous daylight window, and its (start, end) hour.
 
-    Only daylight hours (``is_day``) are considered.
+    Only daylight hours (``is_day``) are considered. Windows that straddle a gap
+    in the forecast (a missing entry) are skipped so the label stays honest.
     """
     day = sorted((h for h in hours if h.is_day), key=lambda h: h.dt)
     if not day:
         return 0.0, None
     win = min(block_hours, len(day))
+    step_tol = interval_h * 0.5  # a gap wider than 1.5x the interval breaks the block
     best_v = 0.0
     best_win: tuple[int, int] | None = None
     for i in range(len(day) - win + 1):
         seg = day[i : i + win]
+        gaps = ((seg[k + 1].dt - seg[k].dt).total_seconds() / 3600.0 for k in range(len(seg) - 1))
+        if any(abs(g - interval_h) > step_tol for g in gaps):
+            continue  # a missing forecast entry – window label would lie
         mean = sum(h.score for h in seg) / win
         if mean > best_v:
             best_v = mean
-            best_win = (seg[0].dt.hour, seg[-1].dt.hour + 1)
+            best_win = (seg[0].dt.hour, (seg[-1].dt.hour + 1) % 24)
     pen = 0.6 if len(day) < min(block_hours, 4) else 1.0
     return round(best_v * pen, 1), best_win
 
@@ -261,9 +274,10 @@ def best_block(hours: list[HourFc], block_hours: int) -> tuple[float, tuple[int,
 def room_score(r: RoomState, outdoor_dew: float | None, cfg: Config) -> RoomScore | None:
     if r.temp is None or r.humidity is None:
         return None
-    td = dew_point(r.temp, r.humidity)
-    ah = abs_humidity(r.temp, r.humidity)
-    v = vpd(r.temp, r.humidity)
+    rh = _clamp_rh(r.humidity)  # a sensor reporting > 100 % must not break the maths
+    td = dew_point(r.temp, rh)
+    ah = abs_humidity(r.temp, rh)
+    v = vpd(r.temp, rh)
     has_window = r.window_entity is not None
     # airing only helps if the room can be aired AND the outdoor air is drier
     vent = has_window and outdoor_dew is not None and outdoor_dew <= td - cfg.vent_margin
@@ -271,15 +285,15 @@ def room_score(r: RoomState, outdoor_dew: float | None, cfg: Config) -> RoomScor
     has_deh = r.dehumidifier_entity is not None
 
     if r.wall_temp is not None:
-        surf_rh = min(r.humidity * sat_vp(r.temp) / sat_vp(r.wall_temp), 100.0)
+        surf_rh = min(rh * sat_vp(r.temp) / sat_vp(r.wall_temp), 100.0)
     else:
-        surf_rh = r.humidity
+        surf_rh = rh
     mold = surf_rh > 80.0 or (r.wall_temp is not None and r.wall_temp <= td)
-    suitable = r.humidity < cfg.room_rh_max and r.temp >= cfg.room_temp_min and not mold
+    suitable = rh < cfg.room_rh_max and r.temp >= cfg.room_temp_min and not mold
 
     sc = ramp(v, 2, 12) * 100.0
     sc += (10 if has_deh else 0) + (8 if vent else 0) + (5 if has_fan else 0)
-    sc -= 25 if r.humidity >= cfg.room_rh_max else 0
+    sc -= 25 if rh >= cfg.room_rh_max else 0
     if mold:
         sc = 2.0
     sc = round(max(0.0, min(100.0, sc)), 1)
@@ -288,7 +302,7 @@ def room_score(r: RoomState, outdoor_dew: float | None, cfg: Config) -> RoomScor
         "mold_risk"
         if mold
         else "too_humid"
-        if r.humidity >= cfg.room_rh_max
+        if rh >= cfg.room_rh_max
         else "too_cold"
         if r.temp < cfg.room_temp_min
         else "ok"
@@ -298,7 +312,7 @@ def room_score(r: RoomState, outdoor_dew: float | None, cfg: Config) -> RoomScor
         score=sc,
         status=status,
         temperature=round(r.temp, 1),
-        humidity=round(r.humidity, 1),
+        humidity=round(rh, 1),
         dewpoint=round(td, 2),
         abs_humidity=round(ah, 2),
         vpd=round(v, 1),
@@ -327,7 +341,7 @@ def evaluate(
     washed: bool,
     has_dryer: bool,
 ) -> Result:
-    """Run the full advice. `daily` is unused for scoring but kept for parity/future.
+    """Run the full advice. ``daily`` is reserved – not used yet.
 
     Does not mutate the input lists – it works on copies.
     """
@@ -357,7 +371,7 @@ def evaluate(
 
     # one best_block per date, reused everywhere
     blocks: dict[str, tuple[float, tuple[int, int] | None]] = {
-        d: best_block(day_hours(d), cfg.block_hours) for d in sorted(by_date)
+        d: best_block(day_hours(d), cfg.block_hours, interval_h) for d in sorted(by_date)
     }
 
     def score_of(date_str: str) -> float:
@@ -388,7 +402,7 @@ def evaluate(
     all_mold = bool(scored) and all(rs.mold_risk for rs in scored)
 
     st = "unknown"
-    room_name: str | None = None
+    chosen: RoomScore | None = None  # the specific room object we recommend
     codes: list[dict] = []
 
     if not forecast_ok:
@@ -413,7 +427,7 @@ def evaluate(
         ]
     elif suitable:
         cand = suitable[0]
-        room_name = cand.name
+        chosen = cand
         if cand.ventilation_useful:
             st = "room_ventilate"
             codes = [
@@ -424,7 +438,7 @@ def evaluate(
                 codes.append({"code": "window_open", "n": cand.name})
             elif cand.window_open is False:
                 codes.append({"code": "window_closed", "n": cand.name})
-        elif cand.has_dehumidifier and (cand.humidity or 0) >= 55:
+        elif cand.has_dehumidifier and (cand.humidity or 0) >= cfg.room_dehumidify_rh:
             st = "room_dehumidify"
             codes = [
                 {"code": "room_best", "n": cand.name, "s": round(cand.score)},
@@ -441,7 +455,7 @@ def evaluate(
         codes = [{"code": "no_room"}, {"code": "outdoor_weak", "s": round(today_score)}]
     elif best_room is not None:
         st = "best_effort"
-        room_name = best_room.name
+        chosen = best_room
         codes = [
             {"code": "no_room"},
             {"code": "no_dryer"},
@@ -450,18 +464,15 @@ def evaluate(
     else:
         st, codes = "unknown", [{"code": "no_room"}]
 
-    rec_obj = None
     for rs in scored:
-        rs.recommended = rs.name == room_name
-        if rs.recommended:
-            rec_obj = rs
+        rs.recommended = rs is chosen
 
     return Result(
         state=st,
         reason_codes=codes,
-        recommended_room=room_name,
-        recommended_fan=rec_obj.fan if rec_obj else None,
-        recommended_dehumidifier=rec_obj.dehumidifier if rec_obj else None,
+        recommended_room=chosen.name if chosen else None,
+        recommended_fan=chosen.fan if chosen else None,
+        recommended_dehumidifier=chosen.dehumidifier if chosen else None,
         outdoor_score=today_score,
         outdoor_score_tomorrow=tomorrow_score,
         outdoor_score_day_after=day_after_score,

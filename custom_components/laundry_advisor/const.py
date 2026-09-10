@@ -36,6 +36,7 @@ CONF_W_SUN = "weight_sun"
 CONF_W_TEMPERATURE = "weight_temperature"
 CONF_ROOM_RH_MAX = "room_rh_max"
 CONF_ROOM_TEMP_MIN = "room_temp_min"
+CONF_ROOM_DEHUMIDIFY_RH = "room_dehumidify_rh"
 CONF_VENT_MARGIN = "vent_dewpoint_margin"
 
 DEFAULTS: dict[str, float | int] = {
@@ -52,5 +53,6 @@ DEFAULTS: dict[str, float | int] = {
     CONF_W_TEMPERATURE: 15,
     CONF_ROOM_RH_MAX: 65,
     CONF_ROOM_TEMP_MIN: 15,
+    CONF_ROOM_DEHUMIDIFY_RH: 55,
     CONF_VENT_MARGIN: 5,
 }

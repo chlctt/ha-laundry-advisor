@@ -18,10 +18,29 @@
           "dryer_entity": "Beliebige Entität, die den Trockner repräsentiert. Nur Vorhandensein-Flag.",
           "already_washed_boolean": "input_boolean. Steuert wait_for_tomorrow vs. defer_wash."
         }
+      },
+      "reconfigure": {
+        "title": "Wäschewetter",
+        "description": "Wetter-Entität oder die optionalen Entitäten ändern. Räume bleiben erhalten.",
+        "data": {
+          "weather_entity": "Wetter-Entität (primär)",
+          "precip_prob_entity": "Zweit-Wetter für die Regenwahrscheinlichkeit",
+          "outdoor_temp": "Außen-Temperatursensor",
+          "outdoor_humidity": "Außen-Feuchtesensor",
+          "dryer_entity": "Wäschetrockner-Entität",
+          "already_washed_boolean": "Helfer: Wäsche ist bereits gewaschen"
+        },
+        "data_description": {
+          "weather_entity": "Liefert die stündliche und tägliche Vorhersage.",
+          "precip_prob_entity": "Leer lassen, wenn die Primärquelle selbst precipitation_probability liefert.",
+          "dryer_entity": "Beliebige Entität, die den Trockner repräsentiert. Nur Vorhandensein-Flag.",
+          "already_washed_boolean": "input_boolean. Steuert wait_for_tomorrow vs. defer_wash."
+        }
       }
     },
     "abort": {
-      "already_configured": "Diese Wetter-Entität wird bereits von einem Wäschewetter-Eintrag genutzt."
+      "already_configured": "Diese Wetter-Entität wird bereits von einem Wäschewetter-Eintrag genutzt.",
+      "reconfigure_successful": "Wäschewetter wurde aktualisiert."
     }
   },
   "config_subentries": {
@@ -57,8 +76,15 @@
             "temp_entity": "Temperatursensor",
             "humidity_entity": "Feuchtesensor",
             "wall_temp_entity": "Sensor für die kälteste Wand-/Oberflächentemperatur",
+            "window_entity": "Fenster-/Tür-Kontaktsensor",
             "fan_entity": "Ventilator",
             "dehumidifier_entity": "Entfeuchter"
+          },
+          "data_description": {
+            "wall_temp_entity": "Optional. Ohne diesen Wert nutzt der Schimmel-Guard die Raumfeuchte.",
+            "window_entity": "Optionaler binary_sensor. Angeben, wenn der Raum gelüftet werden kann – für einen Raum ohne Fenster/Tür leer lassen, dann wird Lüften dort nicht vorgeschlagen.",
+            "fan_entity": "Optional.",
+            "dehumidifier_entity": "Optional."
           }
         }
       }
@@ -81,6 +107,7 @@
           "weight_sun": "Gewicht – Sonne",
           "weight_temperature": "Gewicht – Temperatur",
           "room_rh_max": "Maximale Raum-rF für „nutzbar“ (%)",
+          "room_dehumidify_rh": "Raum-rF, ab der ein Entfeuchter empfohlen wird (%)",
           "room_temp_min": "Minimale Raum-Temperatur für „nutzbar“ (°C)",
           "vent_dewpoint_margin": "Taupunkt-Marge fürs Lüften (K)"
         }

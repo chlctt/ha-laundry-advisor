@@ -46,6 +46,17 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install pytest-homeassistant-custom-component
+      - name: HA test harness must be >= the hacs.json floor
+        run: |
+          python - <<'PY'
+          import json
+          from awesomeversion import AwesomeVersion
+          from homeassistant.const import __version__ as ha
+
+          floor = json.load(open("custom_components/laundry_advisor/hacs.json"))["homeassistant"]
+          assert AwesomeVersion(ha) >= AwesomeVersion(floor), f"HA {ha} < floor {floor}"
+          print(f"HA {ha} >= floor {floor}")
+          PY
       - run: pytest tests/integration/ -q
 
   hassfest:

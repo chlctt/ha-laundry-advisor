@@ -16,7 +16,7 @@ _PLATFORMS = [Platform.SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: LaundryConfigEntry) -> bool:
     coordinator = LaundryCoordinator(hass, entry)
-    await coordinator.async_setup()
+    # async_config_entry_first_refresh() invokes coordinator._async_setup() once.
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator

@@ -43,7 +43,9 @@ holds. Rain makes drying impossible → hard gate.
 `daylight_left_h` is real hours: the count of remaining daylight forecast
 entries is multiplied by the forecast interval derived from two consecutive
 `datetime` values, so it is correct for sub-hourly and multi-hourly providers.
-For an hourly forecast the two are identical.
+For an hourly forecast the two are identical. Note that with a coarse (e.g.
+3-hourly) forecast `daylight_left_h` is quantised to multiples of the interval,
+so the `≥ 4` / `≥ 3` / `≥ 1` gates effectively round up to the next multiple.
 
 **No unified ranking.** "Outside" enters via these absolute thresholds; the rooms
 are only ranked among each other. Whether to fold everything into one ranking is
@@ -95,7 +97,7 @@ tomorrow >= score_hang and (tomorrow − today) >= wait_delta and no room usable
     not washed                                  → defer_wash
 best room is usable:
     airing helps                                → room_ventilate  (recommended_room)
-    dehumidifier present and room RH >= 55 %     → room_dehumidify
+    dehumidifier present and room RH >= room_dehumidify_rh (55 %) → room_dehumidify
     else                                        → room_ok         (warm & dry enough)
 no room usable:
     dryer_entity set                            → dryer_recommended

@@ -40,12 +40,10 @@ _HEADLINES: dict[str, dict[str, str]] = {
 
 _REASONS: dict[str, dict[str, str]] = {
     "en": {
-        "outdoor_rain": "Rain expected – outside is out.",
         "outdoor_good": "Outdoor score today {s}.",
         "outdoor_weak": "Outdoor score today only {s}.",
         "tomorrow_better": "Tomorrow clearly better ({t} vs {d}).",
         "room_best": "{n}: best indoor room (score {s}).",
-        "room_too_humid": "{n} at {rh}% RH – above the limit.",
         "room_dry_enough": "{n} at {rh}% RH is dry enough.",
         "vent_useful": "Outdoor air is drier – airing helps.",
         "vent_useless": "Outdoor air not drier – airing does nothing.",
@@ -57,12 +55,10 @@ _REASONS: dict[str, dict[str, str]] = {
         "mold": "{n}: mould risk (RH above 80%).",
     },
     "de": {
-        "outdoor_rain": "Regen erwartet – draußen fällt aus.",
         "outdoor_good": "Outdoor-Score heute {s}.",
         "outdoor_weak": "Outdoor-Score heute nur {s}.",
         "tomorrow_better": "Morgen deutlich besser ({t} statt {d}).",
         "room_best": "{n}: bester Innenraum (Score {s}).",
-        "room_too_humid": "{n} bei {rh}% rF – über der Grenze.",
         "room_dry_enough": "{n} bei {rh}% rF ist trocken genug.",
         "vent_useful": "Außenluft ist trockener – Lüften hilft.",
         "vent_useless": "Außenluft nicht trockener – Lüften bringt nichts.",
